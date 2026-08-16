@@ -2,20 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Fallback prevents app-crashing throw if env vars are missing
-const validUrl =
-    supabaseUrl && supabaseUrl.startsWith('http')
-        ? supabaseUrl
-        : 'https://placeholder.supabase.co';
+// Debugging logs (Check your browser console!)
+console.log('VITE_SUPABASE_URL:', supabaseUrl);
+console.log('VITE_SUPABASE_ANON_KEY loaded?:', Boolean(supabaseAnonKey));
 
-const validKey = supabaseAnonKey || 'placeholder-key';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn(
-        'Supabase environment variables are missing! Check Vercel Settings > Environment Variables.'
-    );
-}
-
-export const supabase = createClient(validUrl, validKey);
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+);
