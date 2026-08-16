@@ -519,7 +519,7 @@ export default function InventoryManager(): React.JSX.Element {
 
             <div>
               <Label className="text-xs">Unit Type</Label>
-              <Select value={newUnitType} onValueChange={setNewUnitType}>
+              <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
                 <SelectTrigger className="text-xs">
                   <SelectValue />
                 </SelectTrigger>

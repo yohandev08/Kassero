@@ -414,7 +414,7 @@ export default function POS(): React.JSX.Element {
                   + New
                 </button>
               </div>
-              <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+              <Select value={selectedCustomer} onValueChange={(val) => setSelectedCustomer(val ?? '')}>
                 <SelectTrigger className="text-xs">
                   <SelectValue placeholder="Walk-in Customer" />
                 </SelectTrigger>
@@ -560,7 +560,7 @@ export default function POS(): React.JSX.Element {
           <form onSubmit={handleAddDigitalService} className="space-y-3 pt-2">
             <div>
               <Label className="text-xs">Service Type</Label>
-              <Select value={serviceType} onValueChange={setServiceType}>
+              <Select value={serviceType} onValueChange={(val) => setServiceType(val ?? '')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
