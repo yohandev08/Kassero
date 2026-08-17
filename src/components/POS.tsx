@@ -314,7 +314,7 @@ export default function POS(): React.JSX.Element {
   
 
   return (
-    <div className="flex h-screen bg-slate-50 p-4 gap-4">
+    <div className="flex h-screen bg-slate-50 p-1 gap-2">
       {/* LEFT: Product Catalog & Header */}
       <Card className="w-2/3 flex flex-col justify-between">
         <CardHeader className="pb-3">
@@ -337,7 +337,7 @@ export default function POS(): React.JSX.Element {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto">
+        <CardContent className="flex-1 overflow-y-auto p-2">
           {products.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20 border-2 border-dashed rounded-lg">
               <ShoppingCart className="w-12 h-12 mb-2 text-slate-300" />
@@ -345,22 +345,42 @@ export default function POS(): React.JSX.Element {
               <p className="text-xs">Click the buttons above to populate your inventory or process digital transactions.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-2">
               {products.map((product) => (
                 <Card 
                   key={product.product_id}
-                  onClick={() => addToCart(product)}
-                  className="cursor-pointer hover:border-primary transition shadow-sm hover:shadow"
+                  onClick={() => product.stock_quantity > 0 && addToCart(product)}
+                  className={`transition shadow-sm hover:shadow flex flex-col justify-between ${
+                    product.stock_quantity > 0
+                      ? 'cursor-pointer hover:border-emerald-500'
+                      : 'opacity-60 cursor-not-allowed'
+                  }`}
                 >
-                  <CardContent className="p-4 flex flex-col justify-between h-full">
+                  <CardContent className="flex flex-col justify-between h-full p-3">
                     <div>
                       <h4 className="font-semibold text-slate-800 text-sm line-clamp-1">{product.product_name}</h4>
-                      <Badge variant="secondary" className="mt-1 text-[10px]">
+                      <Badge variant={product.stock_quantity > 0 ? "secondary" : "destructive"} className="mt-1 text-[10px]">
                         Stock: {product.stock_quantity}
                       </Badge>
                     </div>
-                    <div className="mt-3 text-primary font-bold text-base">
-                      ₱{product.selling_price.toFixed(2)}
+                    <div className="mt-1 flex items-center justify-between pt-1 border-t border-slate-100">
+                      <div className="text-emerald-700 font-bold text-base">
+                        ₱{product.selling_price.toFixed(2)}
+                      </div>
+
+                      <button 
+                        type="button"
+                        disabled={product.stock_quantity <= 0}
+                        onClick={(e) =>{
+                          e.stopPropagation();
+                          addToCart(product);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Select
+                      </button>
                     </div>
                   </CardContent>
                 </Card>
