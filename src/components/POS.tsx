@@ -65,6 +65,7 @@ export default function POS(): React.JSX.Element {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Checkout Form State
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
@@ -124,6 +125,8 @@ export default function POS(): React.JSX.Element {
   // --- Derived Calculations ---
   const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
   const changeGiven = amountTendered ? Math.max(0, parseFloat(amountTendered) - totalAmount) : 0;
+  const filteredProducts = products.filter((p) =>
+  p.product_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // --- Handlers ---
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -323,6 +326,15 @@ export default function POS(): React.JSX.Element {
               <ShoppingCart className="w-5 h-5 text-primary" /> Products
             </CardTitle>
 
+            <div className='relative w-64'>
+              <input 
+                type="text"
+                placeholder='Search Products...'
+                value={searchQuery}
+                onChange={(e)=>setSearchQuery(e.target.value)}
+                className="text-sm border border-slate-300 rounded-md px-3 py-2 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"/>
+            </div>
+
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50" onClick={() => setActiveModal('digital')}>
                 <Smartphone className="w-4 h-4 mr-1" /> GCash/E-Load
@@ -344,9 +356,15 @@ export default function POS(): React.JSX.Element {
               <p className="font-semibold text-slate-600">No products available</p>
               <p className="text-xs">Click the buttons above to populate your inventory or process digital transactions.</p>
             </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20 border-2 border-dashed rounded-lg">
+              <ShoppingCart className="w-12 h-12 mb-2 text-slate-300" />
+              <p className="font-semibold text-slate-600">No matching products found</p>
+              <p className="text-xs">Try searching with a different keyword.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-4 gap-2">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <Card 
                   key={product.product_id}
                   onClick={() => product.stock_quantity > 0 && addToCart(product)}
