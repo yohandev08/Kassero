@@ -30,7 +30,7 @@ export default function Layout(): React.JSX.Element {
           <nav className="space-y-1">
             <Button
               variant="ghost"
-              className={`w-full justify-start text-xs font-medium gap-3 ${
+              className={`w-full justify-start text-xs font-medium gap-3 cursor-pointer ${
                 activeTab === 'pos'
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -42,7 +42,7 @@ export default function Layout(): React.JSX.Element {
 
             <Button
               variant="ghost"
-              className={`w-full justify-start text-xs font-medium gap-3 ${
+              className={`w-full justify-start text-xs font-medium gap-3 cursor-pointer ${
                 activeTab === 'ledger'
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -54,7 +54,7 @@ export default function Layout(): React.JSX.Element {
 
             <Button
               variant="ghost"
-              className={`w-full justify-start text-xs font-medium gap-3 ${
+              className={`w-full justify-start text-xs font-medium gap-3 cursor-pointer ${
                 activeTab === 'inventory'
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -66,7 +66,7 @@ export default function Layout(): React.JSX.Element {
 
             <Button
               variant="ghost"
-              className={`w-full justify-start text-xs font-medium gap-3 ${
+              className={`w-full justify-start text-xs font-medium gap-3 cursor-pointer ${
                 activeTab === 'analytics'
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'

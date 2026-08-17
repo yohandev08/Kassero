@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { 
-  ShoppingCart, 
-  User, 
-  CreditCard, 
-  Plus, 
-  Minus, 
-  PackagePlus, 
-  UserPlus, 
-  Smartphone 
+import {
+  ShoppingCart,
+  User,
+  Plus,
+  Minus,
+  PackagePlus,
+  UserPlus,
+  Smartphone
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
@@ -125,8 +124,12 @@ export default function POS(): React.JSX.Element {
   // --- Derived Calculations ---
   const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
   const changeGiven = amountTendered ? Math.max(0, parseFloat(amountTendered) - totalAmount) : 0;
-  const filteredProducts = products.filter((p) =>
-  p.product_name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const realProducts = products.filter((p) => !p.product_name.startsWith('[Digital]'));
+  const filteredProducts = products.filter(
+    (p) =>
+      !p.product_name.startsWith('[Digital]') &&
+      p.product_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // --- Handlers ---
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -183,7 +186,7 @@ export default function POS(): React.JSX.Element {
     }
   };
 
-  const handleAddDigitalService = (e: React.FormEvent): void => {
+  const handleAddDigitalService = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!serviceAmount) return alert('Transaction amount required.');
 
@@ -191,17 +194,28 @@ export default function POS(): React.JSX.Element {
     const fee = parseFloat(convenienceFee) || 0;
     const totalServiceCost = txAmount + fee;
 
-    const digitalItem: Product = {
-      product_id: Date.now(),
-      product_name: `[Digital] ${serviceType} - ${serviceAccount || 'No Ref'}`,
-      cost_price: txAmount,
-      selling_price: totalServiceCost,
-      stock_quantity: 999,
-    };
+    const { data, error } = await supabase
+      .from('products')
+      .insert([
+        {
+          product_name: `[Digital] ${serviceType} - ${serviceAccount || 'No Ref'}`,
+          cost_price: txAmount,
+          selling_price: totalServiceCost,
+          stock_quantity: 999,
+        },
+      ])
+      .select()
+      .single();
 
-    addToCart(digitalItem);
+    if (error) {
+      alert('Failed to add digital service: ' + error.message);
+      return;
+    }
+
+    addToCart(data);
     setServiceAccount(''); setServiceAmount(''); setRefNumber('');
-    setActiveModal('none');
+    setActiveModal('none')
+
   };
 
   const addToCart = (product: Product): void => {
@@ -281,7 +295,7 @@ export default function POS(): React.JSX.Element {
       // 4. Handle Utang Recording if payment is Utang
       if (paymentType === 'Utang' && selectedCustomer) {
         const customerIdInt = parseInt(selectedCustomer, 10);
-        
+
         // Add Utang record
         await supabase.from('utang_transactions').insert([
           {
@@ -302,8 +316,8 @@ export default function POS(): React.JSX.Element {
         }
       }
 
-      alert('Transaction completed and saved to Supabase!');
-      
+      alert('Transaction completed.');
+
       // Clear cart and refresh products list to reflect new stock
       setCart([]);
       setAmountTendered('');
@@ -314,10 +328,9 @@ export default function POS(): React.JSX.Element {
       alert('Error saving transaction: ' + err.message);
     }
   };
-  
 
   return (
-    <div className="flex h-screen bg-slate-50 p-1 gap-2">
+    <div className="flex h-screen bg-slate-50 p-1 gap-2 ">
       {/* LEFT: Product Catalog & Header */}
       <Card className="w-2/3 flex flex-col justify-between">
         <CardHeader className="pb-3">
@@ -325,32 +338,30 @@ export default function POS(): React.JSX.Element {
             <CardTitle className="text-xl flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-primary" /> Products
             </CardTitle>
-
             <div className='relative w-64'>
-              <input 
+              <input
                 type="text"
                 placeholder='Search Products...'
                 value={searchQuery}
-                onChange={(e)=>setSearchQuery(e.target.value)}
-                className="text-sm border border-slate-300 rounded-md px-3 py-2 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"/>
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="text-sm border border-slate-300 rounded-md px-3 py-2 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:border-emerald-500" />
             </div>
-
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50" onClick={() => setActiveModal('digital')}>
+            <div className="flex gap-2 transition">
+              <Button size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50 cursor-pointer" onClick={() => setActiveModal('digital')}>
                 <Smartphone className="w-4 h-4 mr-1" /> GCash/E-Load
               </Button>
-              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => setActiveModal('customer')}>
+              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 cursor-pointer" onClick={() => setActiveModal('customer')}>
                 <UserPlus className="w-4 h-4 mr-1" /> Customer
               </Button>
-              <Button size="sm" onClick={() => setActiveModal('product')}>
-                <PackagePlus className="w-4 h-4 mr-1" /> Add Product
+              <Button size="sm" className={"cursor-pointer"} onClick={() => setActiveModal('product')}>
+                <PackagePlus className="w-4 h-4 mr-1 " /> Add Product
               </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto p-2">
-          {products.length === 0 ? (
+          {realProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20 border-2 border-dashed rounded-lg">
               <ShoppingCart className="w-12 h-12 mb-2 text-slate-300" />
               <p className="font-semibold text-slate-600">No products available</p>
@@ -365,14 +376,13 @@ export default function POS(): React.JSX.Element {
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {filteredProducts.map((product) => (
-                <Card 
+                <Card
                   key={product.product_id}
-                  onClick={() => product.stock_quantity > 0 && addToCart(product)}
-                  className={`transition shadow-sm hover:shadow flex flex-col justify-between ${
-                    product.stock_quantity > 0
-                      ? 'cursor-pointer hover:border-emerald-500'
-                      : 'opacity-60 cursor-not-allowed'
-                  }`}
+
+                  className={`transition shadow-sm hover:shadow flex flex-col justify-between ${product.stock_quantity > 0
+                    ? ' hover:border-emerald-500'
+                    : 'opacity-60 cursor-not-allowed'
+                    }`}
                 >
                   <CardContent className="flex flex-col justify-between h-full p-3">
                     <div>
@@ -386,18 +396,20 @@ export default function POS(): React.JSX.Element {
                         ₱{product.selling_price.toFixed(2)}
                       </div>
 
-                      <button 
+                      <button
                         type="button"
                         disabled={product.stock_quantity <= 0}
-                        onClick={(e) =>{
+                        onClick={(e) => {
                           e.stopPropagation();
                           addToCart(product);
                         }}
-                        className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                        className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium 
+                        text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50 
+                        disabled:cursor-not-allowed shadow-sm cursor-pointer">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                         </svg>
-                        Select
+                        Add
                       </button>
                     </div>
                   </CardContent>
@@ -427,11 +439,11 @@ export default function POS(): React.JSX.Element {
                     <p className="text-slate-400">₱{item.selling_price.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQuantity(item.product_id, -1)}>
+                    <Button size="icon" variant="outline" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.product_id, -1)}>
                       <Minus className="w-3 h-3" />
                     </Button>
                     <span className="w-6 text-center font-semibold">{item.quantity}</span>
-                    <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQuantity(item.product_id, 1)}>
+                    <Button size="icon" variant="outline" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.product_id, 1)}>
                       <Plus className="w-3 h-3" />
                     </Button>
                   </div>
@@ -448,18 +460,27 @@ export default function POS(): React.JSX.Element {
                 <Label className="text-xs flex items-center gap-1">
                   <User className="w-3 h-3" /> Customer
                 </Label>
-                <button onClick={() => setActiveModal('customer')} className="text-xs text-primary hover:underline">
-                  + New
+                <button onClick={() => setActiveModal('customer')} className="text-xs text-primary hover:underline cursor-pointer">
+                  + New Customer
                 </button>
               </div>
               <Select value={selectedCustomer} onValueChange={(val) => setSelectedCustomer(val ?? '')}>
-                <SelectTrigger className="text-xs">
-                  <SelectValue placeholder="Walk-in Customer" />
+                <SelectTrigger className="text-xs cursor-pointer">
+                  <SelectValue placeholder="Walk-in Customer">
+                    {selectedCustomer && selectedCustomer !== 'walk-in'
+                      ? (() => {
+                        const c = customers.find(
+                          (cust) => cust.customer_id.toString() === selectedCustomer
+                        );
+                        return c ? `${c.first_name} ${c.last_name}` : 'Walk-in Customer';
+                      })()
+                      : undefined}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="walk-in">Walk-in Customer</SelectItem>
+                <SelectContent className={'w-[280px]'}>
+                  <SelectItem className={'cursor-pointer'} value="walk-in">Walk-in Customer</SelectItem>
                   {customers.map((c) => (
-                    <SelectItem key={c.customer_id} value={c.customer_id.toString()}>
+                    <SelectItem className={'cursor-pointer whitespace-normal'} key={c.customer_id} value={c.customer_id.toString()}>
                       {c.first_name} {c.last_name} (Bal: ₱{c.current_balance})
                     </SelectItem>
                   ))}
@@ -468,24 +489,23 @@ export default function POS(): React.JSX.Element {
             </div>
 
             {/* Payment Method */}
-            <div>
-              <Label className="text-xs flex items-center gap-1 mb-1">
-                <CreditCard className="w-3 h-3" /> Payment Method
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['Cash', 'Utang', 'Digital'] as const).map((type) => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['Cash', 'Utang', 'Digital'] as const).map((type) => {
+                const isUtangDisabled = type === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in');
+                return (
                   <Button
                     key={type}
                     type="button"
                     size="sm"
                     variant={paymentType === type ? 'default' : 'outline'}
-                    className="text-xs"
+                    className="text-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={isUtangDisabled}
                     onClick={() => setPaymentType(type)}
                   >
                     {type}
                   </Button>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
             {/* Cash Tendered */}
@@ -497,7 +517,7 @@ export default function POS(): React.JSX.Element {
                   placeholder="0.00"
                   value={amountTendered}
                   onChange={(e) => setAmountTendered(e.target.value)}
-                  className="text-sm"
+                  className="text-sm "
                 />
               </div>
             )}
@@ -516,7 +536,7 @@ export default function POS(): React.JSX.Element {
               </div>
             )}
 
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" onClick={handleCheckout}>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700 cursor-pointer" size="lg" onClick={handleCheckout}>
               Complete Transaction
             </Button>
           </div>
@@ -527,7 +547,7 @@ export default function POS(): React.JSX.Element {
 
       {/* 1. Add Product Dialog */}
       <Dialog open={activeModal === 'product'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] ">
           <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
           </DialogHeader>
@@ -550,8 +570,8 @@ export default function POS(): React.JSX.Element {
               <Label className="text-xs">Stock Quantity</Label>
               <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} />
             </div>
-            <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full">Save Product</Button>
+            <DialogFooter className="pt-2 ">
+              <Button type="submit" className="w-full cursor-pointer">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -583,7 +603,7 @@ export default function POS(): React.JSX.Element {
               <Input type="number" value={newCreditLimit} onChange={(e) => setNewCreditLimit(e.target.value)} />
             </div>
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">Register Customer</Button>
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 cursor-pointer">Register Customer</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -603,10 +623,9 @@ export default function POS(): React.JSX.Element {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="GCash Cash-In">GCash Cash-In</SelectItem>
-                  <SelectItem value="GCash Cash-Out">GCash Cash-Out</SelectItem>
-                  <SelectItem value="E-Load">E-Load (Smart/Globe)</SelectItem>
-                  <SelectItem value="Bills Payment">Bills Payment</SelectItem>
+                  <SelectItem className={'cursor-pointer'} value="GCash Cash-In">GCash Cash-In</SelectItem>
+                  <SelectItem className={'cursor-pointer'} value="GCash Cash-Out">GCash Cash-Out</SelectItem>
+                  <SelectItem className={'cursor-pointer'} value="E-Load">E-Load (Smart/Globe)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -629,7 +648,7 @@ export default function POS(): React.JSX.Element {
               <Input placeholder="Ref # 1002391" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
             </div>
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">Add Service to Cart</Button>
+              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 cursor-pointer">Add Service to Cart</Button>
             </DialogFooter>
           </form>
         </DialogContent>
