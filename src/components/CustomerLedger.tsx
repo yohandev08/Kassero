@@ -187,7 +187,7 @@ export default function CustomerLedger(): React.JSX.Element {
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 p-4 gap-4">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 p-4 gap-4">
       {/* LEFT: Customer List & Search */}
       <Card className="w-1/3 flex flex-col">
         <CardHeader className="pb-3">
@@ -222,7 +222,7 @@ export default function CustomerLedger(): React.JSX.Element {
                   className={`p-3 rounded-lg border cursor-pointer transition flex justify-between items-center ${
                     isSelected
                       ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                 >
                   <div>
@@ -261,10 +261,10 @@ export default function CustomerLedger(): React.JSX.Element {
             <CardHeader className="border-b pb-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-2xl font-bold text-slate-900">
+                  <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-50">
                     {selectedCustomer.first_name} {selectedCustomer.last_name}
                   </CardTitle>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-50 mt-0.5">
                     Phone: {selectedCustomer.phone_number || 'N/A'}
                   </p>
                 </div>
@@ -280,22 +280,22 @@ export default function CustomerLedger(): React.JSX.Element {
 
               {/* Summary Metrics */}
               <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
-                  <p className="text-[11px] text-slate-500 uppercase font-semibold">Total Debt</p>
+                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Total Debt</p>
                   <p className="text-xl font-bold text-red-600">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
-                  <p className="text-[11px] text-slate-500 uppercase font-semibold">Credit Limit</p>
-                  <p className="text-xl font-bold text-slate-800">
+                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Credit Limit</p>
+                  <p className="text-xl font-bold text-slate-800 dark:text-slate-50">
                     ₱{selectedCustomer.credit_limit.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
-                  <p className="text-[11px] text-slate-500 uppercase font-semibold">Available Credit</p>
+                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Available Credit</p>
                   <p className="text-xl font-bold text-emerald-600">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
                   </p>
@@ -305,7 +305,7 @@ export default function CustomerLedger(): React.JSX.Element {
 
             {/* Transaction History Section */}
             <CardContent className="flex-1 overflow-y-auto pt-4">
-              <h3 className="font-semibold text-slate-700 text-sm mb-3 flex items-center gap-1.5">
+              <h3 className="font-semibold text-slate-700 dark:text-slate-50 text-sm mb-3 flex items-center gap-1.5">
                 <History className="w-4 h-4 text-slate-500" /> Utang Transaction History
               </h3>
 
@@ -320,14 +320,14 @@ export default function CustomerLedger(): React.JSX.Element {
               ) : (
                 <div className="space-y-4">
                   {utangHistory.map((tx) => (
-                    <Card key={tx.utang_id} className="border border-slate-200 shadow-none">
+                    <Card key={tx.utang_id} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-none">
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start border-b pb-2 mb-2">
                           <div>
-                            <span className="text-xs text-slate-400 font-mono">
+                            <span className="text-xs text-slate-400 dark:text-slate-50 font-mono">
                               Sale ID #{tx.sale_id}
                             </span>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-slate-500 dark:text-slate-50">
                               {new Date(tx.created_at).toLocaleString()}
                             </p>
                           </div>

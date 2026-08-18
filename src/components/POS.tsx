@@ -95,6 +95,10 @@ export default function POS(): React.JSX.Element {
   const [refNumber, setRefNumber] = useState<string>('');
 
 
+  // Customer Search Popover
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+
   // ------- Components --------
   // --- Initial Data Fetching ---
   useEffect(() => {
@@ -329,10 +333,16 @@ export default function POS(): React.JSX.Element {
     }
   };
 
+  //Filter Customer
+    const filteredCustomers = customers.filter((c) => {
+      const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+      return fullName.includes(customerSearch.toLowerCase());
+    });
+
   return (
-    <div className="flex h-screen bg-slate-50 p-1 gap-2 ">
+    <div className="flex h-screen p-1 dark:bg-slate-900 gap-1">
       {/* LEFT: Product Catalog & Header */}
-      <Card className="w-2/3 flex flex-col justify-between">
+      <Card className="w-2/3 flex flex-col justify-between bg-[#F2F4F7] dark:bg-[#1C1C1D] border border-neutral-900/30 dark:border-white/10">
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
             <CardTitle className="text-xl flex items-center gap-2">
@@ -379,14 +389,15 @@ export default function POS(): React.JSX.Element {
                 <Card
                   key={product.product_id}
 
-                  className={`transition shadow-sm hover:shadow flex flex-col justify-between ${product.stock_quantity > 0
-                    ? ' hover:border-emerald-500'
+                  className={`transition duration-300 shadow-sm flex flex-col justify-between bg-[#2A2A2A] dark:bg-[#252728] border    ${
+                    product.stock_quantity > 0
+                    ? 'hover:scale-102 hover:shadow hover:border-emerald-500'
                     : 'opacity-60 cursor-not-allowed'
-                    }`}
+                  }`}
                 >
-                  <CardContent className="flex flex-col justify-between h-full p-3">
+                  <CardContent className="flex flex-col justify-between h-full p-3 border-slate-50 dark:border-slate-50">
                     <div>
-                      <h4 className="font-semibold text-slate-800 text-sm line-clamp-1">{product.product_name}</h4>
+                      <h4 className="font-semibold text-slate-50 text-sm line-clamp-1">{product.product_name}</h4>
                       <Badge variant={product.stock_quantity > 0 ? "secondary" : "destructive"} className="mt-1 text-[10px]">
                         Stock: {product.stock_quantity}
                       </Badge>
@@ -421,22 +432,22 @@ export default function POS(): React.JSX.Element {
       </Card>
 
       {/* RIGHT: Cart & Payment Details */}
-      <Card className="w-1/3 flex flex-col justify-between">
+      <Card className="w-1/3 flex flex-col justify-between bg-[F2F4F7] dark:bg-[#1C1C1D] border border-neutral-900/30 dark:border-white/10">
         <CardHeader>
           <CardTitle className="text-xl">Current Order</CardTitle>
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col justify-between">
           {/* Cart List */}
-          <div className="max-h-52 overflow-y-auto border-b pb-2">
+          <div className="max-h-52 overflow-y-auto border-b border-neutral-900/30 dark:border-white/10 pb-2">
             {cart.length === 0 ? (
-              <p className="text-slate-400 text-center py-8 text-sm">Cart is empty</p>
+              <p className="text-neutral-900/70 dark:text-slate-100 text-center py-8 text-sm">Cart is empty</p>
             ) : (
               cart.map((item) => (
                 <div key={item.product_id} className="flex justify-between items-center my-2 text-xs">
                   <div className="flex-1 pr-2">
-                    <p className="font-medium text-slate-800">{item.product_name}</p>
-                    <p className="text-slate-400">₱{item.selling_price.toFixed(2)}</p>
+                    <p className="font-medium text-slate-black dark:text-slate-100">{item.product_name}</p>
+                    <p className="text-black dark:text-slate-100">₱{item.selling_price.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button size="icon" variant="outline" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.product_id, -1)}>
@@ -454,42 +465,100 @@ export default function POS(): React.JSX.Element {
           </div>
 
           <div className="space-y-3 mt-3">
-            {/* Customer Dropdown */}
-            <div>
+            {/* Searchable Customer Dropdown */}
+            <div className="relative">
               <div className="flex justify-between items-center mb-1">
                 <Label className="text-xs flex items-center gap-1">
                   <User className="w-3 h-3" /> Customer
                 </Label>
-                <button onClick={() => setActiveModal('customer')} className="text-xs text-primary hover:underline cursor-pointer">
+                <button
+                  onClick={() => setActiveModal('customer')}
+                  className="text-xs text-primary hover:underline cursor-pointer"
+                >
                   + New Customer
                 </button>
               </div>
-              <Select value={selectedCustomer} onValueChange={(val) => setSelectedCustomer(val ?? '')}>
-                <SelectTrigger className="text-xs cursor-pointer">
-                  <SelectValue placeholder="Walk-in Customer">
-                    {selectedCustomer && selectedCustomer !== 'walk-in'
-                      ? (() => {
+
+              {/* Main Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setCustomerOpen(!customerOpen)}
+                className="w-full flex items-center justify-between text-xs px-3 py-2 border rounded-md bg-transparent text-left hover:bg-accent cursor-pointer"
+              >
+                <span className="truncate">
+                  {selectedCustomer && selectedCustomer !== 'walk-in'
+                    ? (() => {
                         const c = customers.find(
                           (cust) => cust.customer_id.toString() === selectedCustomer
                         );
                         return c ? `${c.first_name} ${c.last_name}` : 'Walk-in Customer';
                       })()
-                      : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className={'w-[280px]'}>
-                  <SelectItem className={'cursor-pointer'} value="walk-in">Walk-in Customer</SelectItem>
-                  {customers.map((c) => (
-                    <SelectItem className={'cursor-pointer whitespace-normal'} key={c.customer_id} value={c.customer_id.toString()}>
-                      {c.first_name} {c.last_name} (Bal: ₱{c.current_balance})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    : 'Walk-in Customer'}
+                </span>
+                <span className="text-neutral-400 text-[10px]">▼</span>
+              </button>
+
+              {/* Dropdown Menu Overlay */}
+              {customerOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#1C1C1D] border border-neutral-800 rounded-md shadow-lg overflow-hidden">
+                  {/* Search Input Box */}
+                  <div className="p-2 border-b border-neutral-800">
+                    <Input
+                      type="text"
+                      placeholder="Search customer..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      className="text-xs h-8 bg-neutral-900 border-neutral-700"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Customer List */}
+                  <div className="max-h-48 overflow-y-auto py-1">
+                    {/* Walk-in Customer Option */}
+                    <div
+                      onClick={() => {
+                        setSelectedCustomer('walk-in');
+                        setCustomerOpen(false);
+                        setCustomerSearch('');
+                      }}
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-800 flex items-center justify-between ${
+                        selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold bg-neutral-800/50' : ''
+                      }`}
+                    >
+                      Walk-in Customer
+                    </div>
+
+                    {/* Filtered Customer List */}
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((c) => (
+                        <div
+                          key={c.customer_id}
+                          onClick={() => {
+                            setSelectedCustomer(c.customer_id.toString());
+                            setCustomerOpen(false);
+                            setCustomerSearch('');
+                          }}
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-800 flex items-center justify-between ${
+                            selectedCustomer === c.customer_id.toString() ? 'font-bold bg-neutral-800/50' : ''
+                          }`}
+                        >
+                          <span>{c.first_name} {c.last_name}</span>
+                          <span className="text-neutral-400 text-[11px]">(Bal: ₱{c.current_balance})</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-xs text-neutral-500 text-center">
+                        No customer found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Payment Method */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 ">
               {(['Cash', 'Utang', 'Digital'] as const).map((type) => {
                 const isUtangDisabled = type === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in');
                 return (
@@ -498,7 +567,8 @@ export default function POS(): React.JSX.Element {
                     type="button"
                     size="sm"
                     variant={paymentType === type ? 'default' : 'outline'}
-                    className="text-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                    className={`text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${paymentType === type ? '' : 'border border-slate-300 hover:border-slate-400'
+                      }`}
                     disabled={isUtangDisabled}
                     onClick={() => setPaymentType(type)}
                   >
@@ -525,12 +595,12 @@ export default function POS(): React.JSX.Element {
 
           {/* Totals & Submit */}
           <div className="border-t pt-3 mt-3">
-            <div className="flex justify-between text-slate-600 mb-1">
-              <span>Total</span>
-              <span className="font-bold text-xl text-slate-900">₱{totalAmount.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-slate-800 dark:text-slate-100 mb-1">
+              <span className="font-semibold text-sm">Total</span>
+              <span className="font-bold text-xl">₱{totalAmount.toFixed(2)}</span>
             </div>
             {paymentType === 'Cash' && (
-              <div className="flex justify-between text-xs text-slate-500 mb-3">
+              <div className="flex justify-between text-xs text-slate-800 dark:text-slate-100 mb-3">
                 <span>Change</span>
                 <span>₱{changeGiven.toFixed(2)}</span>
               </div>
