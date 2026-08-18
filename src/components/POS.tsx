@@ -483,7 +483,7 @@ export default function POS(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setCustomerOpen(!customerOpen)}
-                className="w-full flex items-center justify-between text-xs px-3 py-2 border rounded-md bg-transparent text-left hover:bg-accent cursor-pointer"
+                className="w-full flex items-center justify-between text-xs px-3 py-2 border border-neutral-900/30 dark:border-white/30 rounded-md bg-transparent text-left hover:bg-accent cursor-pointer"
               >
                 <span className="truncate">
                   {selectedCustomer && selectedCustomer !== 'walk-in'
@@ -500,7 +500,7 @@ export default function POS(): React.JSX.Element {
 
               {/* Dropdown Menu Overlay */}
               {customerOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#1C1C1D] border border-neutral-800 rounded-md shadow-lg overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#F1F5F9] dark:bg-[#1C1C1D] border border-neutral-800 rounded-md shadow-lg overflow-hidden">
                   {/* Search Input Box */}
                   <div className="p-2 border-b border-neutral-800">
                     <Input
@@ -508,7 +508,7 @@ export default function POS(): React.JSX.Element {
                       placeholder="Search customer..."
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="text-xs h-8 bg-neutral-900 border-neutral-700"
+                      className="text-xs h-8 bg-[#F1F5F9] dark:bg-neutral-900 border-neutral-700"
                       autoFocus
                     />
                   </div>
@@ -522,8 +522,8 @@ export default function POS(): React.JSX.Element {
                         setCustomerOpen(false);
                         setCustomerSearch('');
                       }}
-                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-800 flex items-center justify-between ${
-                        selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold bg-neutral-800/50' : ''
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${
+                        selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold ' : ''
                       }`}
                     >
                       Walk-in Customer
@@ -539,12 +539,12 @@ export default function POS(): React.JSX.Element {
                             setCustomerOpen(false);
                             setCustomerSearch('');
                           }}
-                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-800 flex items-center justify-between ${
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${
                             selectedCustomer === c.customer_id.toString() ? 'font-bold bg-neutral-800/50' : ''
                           }`}
                         >
                           <span>{c.first_name} {c.last_name}</span>
-                          <span className="text-neutral-400 text-[11px]">(Bal: ₱{c.current_balance})</span>
+                          <span className="text-neutral-600 text-[11px]">(Bal: ₱{c.current_balance})</span>
                         </div>
                       ))
                     ) : (
