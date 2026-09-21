@@ -187,29 +187,32 @@ export default function CustomerLedger(): React.JSX.Element {
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 p-4 gap-4">
+    <div className="flex h-full p-0.5 bg-background gap-4 overflow-hidden">
       {/* LEFT: Customer List & Search */}
-      <Card className="w-1/3 flex flex-col">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" /> Customer Directory
+      <Card className="w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+          <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <User className="w-5 h-5" />
+            </div>
+            Customer Directory
           </CardTitle>
-          <CardDescription>Select a customer to view ledger and record payments</CardDescription>
+          <CardDescription className="text-xs text-muted-foreground">Select a customer to view ledger and record payments</CardDescription>
 
-          <div className="relative mt-2">
-            <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
+          <div className="relative mt-3">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
             <Input
               placeholder="Search customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs"
+              className="pl-9 text-xs bg-background border-input"
             />
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto space-y-2 pr-2 py-2">
+        <CardContent className="flex-1 overflow-y-auto space-y-2 p-3">
           {filteredCustomers.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-xs">No customers found</div>
+            <div className="text-center py-10 text-muted-foreground text-xs">No customers found</div>
           ) : (
             filteredCustomers.map((cust) => {
               const isSelected = selectedCustomer?.customer_id === cust.customer_id;
@@ -219,28 +222,31 @@ export default function CustomerLedger(): React.JSX.Element {
                 <div
                   key={cust.customer_id}
                   onClick={() => handleSelectCustomer(cust)}
-                  className={`p-3 rounded-lg border cursor-pointer transition duration-300 shadow-sm flex justify-between items-center ${isSelected
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border border-neutral-900/30 dark:border-white/10 bg-[#F2F4F7] dark:bg-[#252728] hover:scale-102 hover:shadow hover:border-emerald-500 dark:hover:border-emerald-500'
-                    }`}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
+                      : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40'
+                  }`}
                 >
                   <div>
-                    <p className="font-semibold text-010415 dark:text-slate-50 text-sm ">
+                    <p className="font-semibold text-foreground text-sm">
                       {cust.first_name} {cust.last_name}
                     </p>
-                    <p className="text-[11px] text-010415">{cust.phone_number || 'No phone'}</p>
+                    <p className="text-[11px] text-muted-foreground">{cust.phone_number || 'No phone'}</p>
                   </div>
 
                   <div className="text-right">
                     <p
-                      className={`font-bold text-sm ${cust.current_balance > 0 ? 'text-[#FF5B5B]' : 'text-emerald-600'
+                      className={`font-bold text-sm ${cust.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                     >
                       ₱{cust.current_balance.toFixed(2)}
                     </p>
                     <Badge
                       variant={isOverLimit ? 'destructive' : 'secondary'}
-                      className="text-[9px] px-1.5 py-0"
+                      className={`text-[9px] px-1.5 py-0 font-medium ${
+                        !isOverLimit ? 'bg-muted text-muted-foreground' : ''
+                      }`}
                     >
                       Limit: ₱{cust.credit_limit}
                     </Badge>
@@ -253,16 +259,16 @@ export default function CustomerLedger(): React.JSX.Element {
       </Card>
 
       {/* RIGHT: Customer Ledger & Utang Breakdown */}
-      <Card className="w-2/3 flex flex-col">
+      <Card className="w-2/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
         {selectedCustomer ? (
           <>
-            <CardHeader className="border-b pb-4">
+            <CardHeader className="border-b border-border/60 pb-4 bg-muted/20">
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                  <CardTitle className="text-xl font-bold text-foreground">
                     {selectedCustomer.first_name} {selectedCustomer.last_name}
                   </CardTitle>
-                  <p className="text-xs text-slate-500 dark:text-slate-50 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Phone: {selectedCustomer.phone_number || 'N/A'}
                   </p>
                 </div>
@@ -270,31 +276,31 @@ export default function CustomerLedger(): React.JSX.Element {
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm shadow-emerald-600/20"
                 >
-                  <DollarSign className="w-4 h-4 mr-1 " /> Pay Utang
+                  <DollarSign className="w-4 h-4 mr-1" /> Pay Utang
                 </Button>
               </div>
 
               {/* Summary Metrics */}
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Total Debt</p>
-                  <p className="text-xl font-bold text-[#FF5B5B]">
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
+                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Total Debt</p>
+                  <p className="text-xl font-bold text-rose-500 dark:text-rose-400">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Credit Limit</p>
-                  <p className="text-xl font-bold text-slate-800 dark:text-slate-50">
+                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
+                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Credit Limit</p>
+                  <p className="text-xl font-bold text-foreground">
                     ₱{selectedCustomer.credit_limit.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Available Credit</p>
-                  <p className="text-xl font-bold text-emerald-600">
+                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
+                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Available Credit</p>
+                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
                   </p>
                 </div>
@@ -302,44 +308,45 @@ export default function CustomerLedger(): React.JSX.Element {
             </CardHeader>
 
             {/* Transaction History Section */}
-            <CardContent className="flex-1 overflow-y-auto pt-4">
-              <h3 className="font-semibold text-slate-700 dark:text-slate-50 text-sm mb-3 flex items-center gap-1.5">
-                <History className="w-4 h-4 text-slate-500" /> Utang Transaction History
+            <CardContent className="flex-1 overflow-y-auto p-4">
+              <h3 className="font-semibold text-foreground text-sm mb-3 flex items-center gap-1.5">
+                <History className="w-4 h-4 text-emerald-500" /> Utang Transaction History
               </h3>
 
               {loadingHistory ? (
-                <div className="text-center py-10 text-slate-400 text-xs">Loading ledger...</div>
+                <div className="text-center py-10 text-muted-foreground text-xs">Loading ledger...</div>
               ) : utangHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <CheckCircle className="w-10 h-10 mb-2 text-emerald-500" />
-                  <p className="text-sm font-medium">No Utang records found</p>
-                  <p className="text-xs">This customer has a clean record.</p>
+                  <p className="text-sm font-semibold text-foreground">No Utang records found</p>
+                  <p className="text-xs text-muted-foreground">This customer has a clean record.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {utangHistory.map((tx) => (
-                    <Card key={tx.utang_id} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-none">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start border-b pb-2 mb-2">
+                    <Card key={tx.utang_id} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
+                      <CardContent className="p-3.5">
+                        <div className="flex justify-between items-start border-b border-border/50 pb-2 mb-2">
                           <div>
-                            <span className="text-xs text-slate-400 dark:text-slate-50 font-mono">
+                            <span className="text-xs text-muted-foreground font-mono">
                               Sale ID #{tx.sale_id}
                             </span>
-                            <p className="text-xs text-slate-500 dark:text-slate-50">
+                            <p className="text-xs text-muted-foreground">
                               {new Date(tx.created_at).toLocaleString()}
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="font-bold text-sm text-[#FF5B5B]">
+                            <span className="font-bold text-sm text-rose-500 dark:text-rose-400">
                               ₱{tx.amount.toFixed(2)}
                             </span>
                             <div className="mt-0.5">
                               <Badge
                                 variant={tx.status === 'Paid' ? 'secondary' : 'outline'}
-                                className={`text-[10px] ${tx.status === 'Unpaid'
-                                    ? 'border-red-300 text-[#FF5B5B] bg-red-50'
-                                    : 'border-emerald-300 text-emerald-600 bg-emerald-50'
-                                  }`}
+                                className={`text-[10px] font-medium ${
+                                  tx.status === 'Unpaid'
+                                    ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                                    : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                                }`}
                               >
                                 {tx.status}
                               </Badge>
@@ -349,12 +356,12 @@ export default function CustomerLedger(): React.JSX.Element {
 
                         {/* Itemized List inside Sale */}
                         {tx.sales?.sale_items && tx.sales.sale_items.length > 0 && (
-                          <div className="space-y-1 bg-slate-50 p-2 rounded text-xs">
-                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-1 flex items-center gap-1">
-                              <Receipt className="w-3 h-3" /> Items Purchased
+                          <div className="space-y-1 bg-muted/40 p-2.5 rounded-lg text-xs border border-border/40">
+                            <p className="text-[10px] text-muted-foreground font-semibold uppercase mb-1 flex items-center gap-1">
+                              <Receipt className="w-3 h-3 text-emerald-500" /> Items Purchased
                             </p>
                             {tx.sales.sale_items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-slate-600">
+                              <div key={idx} className="flex justify-between text-foreground font-medium">
                                 <span>
                                   {item.quantity}x {item.products?.product_name || 'Product'}
                                 </span>
@@ -371,40 +378,40 @@ export default function CustomerLedger(): React.JSX.Element {
             </CardContent>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
-            <User className="w-12 h-12 mb-2 text-slate-300" />
-            <p className="font-semibold text-slate-600">No Customer Selected</p>
-            <p className="text-xs">Choose a customer from the left list to view details.</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20">
+            <User className="w-12 h-12 mb-2 text-muted-foreground/40" />
+            <p className="font-semibold text-foreground">No Customer Selected</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Choose a customer from the left list to view details.</p>
           </div>
         )}
       </Card>
 
       {/* ================= PAYMENT DIALOG ================= */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Record Utang Payment</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Record Utang Payment</DialogTitle>
           </DialogHeader>
 
           {selectedCustomer && (
             <form onSubmit={handleRecordPayment} className="space-y-3 pt-2">
-              <div className="p-3 bg-slate-50 border rounded-lg text-xs space-y-1">
-                <div className="flex justify-between text-slate-600">
+              <div className="p-3 bg-muted/40 border border-border rounded-xl text-xs space-y-1">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Customer:</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-foreground">
                     {selectedCustomer.first_name} {selectedCustomer.last_name}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Current Debt:</span>
-                  <span className="font-bold text-red-600">
+                  <span className="font-bold text-rose-500 dark:text-rose-400">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs">Payment Amount (₱)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Payment Amount (₱)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -412,22 +419,22 @@ export default function CustomerLedger(): React.JSX.Element {
                   placeholder="0.00"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="text-sm font-semibold"
+                  className="text-sm font-semibold bg-background"
                 />
               </div>
 
-              <div>
-                <Label className="text-xs">Notes / Reference (Optional)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Notes / Reference (Optional)</Label>
                 <Input
                   placeholder="e.g. Partial cash payment"
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
-                  className="text-xs"
+                  className="text-xs bg-background"
                 />
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">
                   Submit Payment
                 </Button>
               </DialogFooter>

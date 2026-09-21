@@ -221,80 +221,91 @@ export default function InventoryManager(): React.JSX.Element {
   });
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 p-6 gap-6">
+    <div className="flex flex-col h-full p-0.5 bg-background gap-5 overflow-hidden">
       {/* HEADER & METRIC SUMMARY CARDS */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Package className="w-6 h-6 text-primary" /> Inventory & Restock Dashboard
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Package className="w-5 h-5" />
+            </div>
+            Inventory & Restock Dashboard
           </h1>
-          <p className="text-xs text-slate-500">Monitor stock levels, reorder alerts, and supplier deliveries</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Monitor stock levels, reorder alerts, and supplier deliveries</p>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchProducts} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          <Button variant="outline" size="sm" onClick={fetchProducts} disabled={loading} className="text-xs font-semibold cursor-pointer border-input hover:bg-accent">
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 text-emerald-500 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button size="sm" onClick={() => setIsAddOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-            <PlusCircle className="w-4 h-4 mr-1" /> Add New Item
+          <Button size="sm" onClick={() => setIsAddOpen(true)} className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm shadow-emerald-600/20">
+            <PlusCircle className="w-3.5 h-3.5 mr-1" /> Add New Item
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400">Total Products</p>
-              <p className="text-2xl font-bold text-slate-800">{totalItems}</p>
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground">Total Products</p>
+              <p className="text-2xl font-bold text-foreground mt-0.5">{totalItems}</p>
             </div>
-            <PackageCheck className="w-8 h-8 text-slate-400" />
+            <div className="p-2 rounded-xl bg-muted text-muted-foreground">
+              <PackageCheck className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-amber-200 bg-amber-50/50 shadow-sm">
+        <Card className="border-amber-500/30 bg-amber-500/5 text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
-              <p className="text-xs font-semibold uppercase text-amber-600">Low Stock Warning</p>
-              <p className="text-2xl font-bold text-amber-700">{lowStockCount}</p>
+              <p className="text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400">Low Stock Warning</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">{lowStockCount}</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-amber-500" />
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-red-200 bg-red-50/50 shadow-sm">
+        <Card className="border-rose-500/30 bg-rose-500/5 text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
-              <p className="text-xs font-semibold uppercase text-red-600">Out of Stock</p>
-              <p className="text-2xl font-bold text-red-700">{outOfStockCount}</p>
+              <p className="text-[11px] font-semibold uppercase text-rose-600 dark:text-rose-400">Out of Stock</p>
+              <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5">{outOfStockCount}</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400">Inventory Cost Value</p>
-              <p className="text-2xl font-bold text-emerald-600">₱{totalInventoryValue.toFixed(2)}</p>
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground">Inventory Cost Value</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">₱{totalInventoryValue.toFixed(2)}</p>
             </div>
-            <TrendingUp className="w-8 h-8 text-emerald-500" />
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* FILTER & TABLE SECTION */}
-      <Card className="flex-1 flex flex-col overflow-hidden border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b">
+      <Card className="flex-1 flex flex-col overflow-hidden border-border/80 bg-card text-card-foreground shadow-md rounded-xl">
+        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex justify-between items-center">
             {/* Search Input */}
             <div className="relative w-72">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
               <Input
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 text-xs"
+                className="pl-9 text-xs bg-background border-input"
               />
             </div>
 
@@ -303,7 +314,11 @@ export default function InventoryManager(): React.JSX.Element {
               <Button
                 variant={filterTab === 'all' ? 'default' : 'outline'}
                 size="sm"
-                className="text-xs"
+                className={`text-xs font-semibold cursor-pointer ${
+                  filterTab === 'all' 
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs' 
+                    : 'border-input hover:bg-accent text-foreground'
+                }`}
                 onClick={() => setFilterTab('all')}
               >
                 All Items ({totalItems})
@@ -311,7 +326,11 @@ export default function InventoryManager(): React.JSX.Element {
               <Button
                 variant={filterTab === 'low_stock' ? 'default' : 'outline'}
                 size="sm"
-                className="text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                className={`text-xs font-semibold cursor-pointer ${
+                  filterTab === 'low_stock'
+                    ? 'bg-amber-600 text-white hover:bg-amber-700'
+                    : 'text-amber-600 border-amber-500/30 hover:bg-amber-500/10 dark:text-amber-400'
+                }`}
                 onClick={() => setFilterTab('low_stock')}
               >
                 Low Stock ({lowStockCount})
@@ -319,7 +338,11 @@ export default function InventoryManager(): React.JSX.Element {
               <Button
                 variant={filterTab === 'out_of_stock' ? 'default' : 'outline'}
                 size="sm"
-                className="text-xs text-red-700 border-red-300 hover:bg-red-50"
+                className={`text-xs font-semibold cursor-pointer ${
+                  filterTab === 'out_of_stock'
+                    ? 'bg-rose-600 text-white hover:bg-rose-700'
+                    : 'text-rose-600 border-rose-500/30 hover:bg-rose-500/10 dark:text-rose-400'
+                }`}
                 onClick={() => setFilterTab('out_of_stock')}
               >
                 Out of Stock ({outOfStockCount})
@@ -331,56 +354,56 @@ export default function InventoryManager(): React.JSX.Element {
         {/* INVENTORY TABLE */}
         <CardContent className="flex-1 overflow-y-auto p-0">
           {loading ? (
-            <div className="text-center py-20 text-slate-400 text-xs">Loading inventory database...</div>
+            <div className="text-center py-20 text-muted-foreground text-xs">Loading inventory database...</div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-20 text-slate-400 text-xs">No matching products found</div>
+            <div className="text-center py-20 text-muted-foreground text-xs">No matching products found</div>
           ) : (
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100 text-slate-600 font-semibold uppercase sticky top-0 border-b">
+              <thead className="bg-muted/50 text-muted-foreground font-bold uppercase sticky top-0 border-b border-border/60 backdrop-blur-xs">
                 <tr>
-                  <th className="p-3">Product Name</th>
-                  <th className="p-3">Cost Price</th>
-                  <th className="p-3">Selling Price</th>
-                  <th className="p-3">Profit Margin</th>
-                  <th className="p-3">Stock Quantity</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="p-3.5">Product Name</th>
+                  <th className="p-3.5">Cost Price</th>
+                  <th className="p-3.5">Selling Price</th>
+                  <th className="p-3.5">Profit Margin</th>
+                  <th className="p-3.5">Stock Quantity</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-border/50">
                 {filteredProducts.map((p) => {
                   const margin = p.selling_price - p.cost_price;
                   const isLow = p.stock_quantity <= p.reorder_level && p.stock_quantity > 0;
                   const isOut = p.stock_quantity === 0;
 
                   return (
-                    <tr key={p.product_id} className="hover:bg-slate-50 transition">
-                      <td className="p-3 font-semibold text-slate-800">
+                    <tr key={p.product_id} className="hover:bg-muted/40 transition-colors">
+                      <td className="p-3.5 font-semibold text-foreground">
                         {p.product_name}
-                        {p.unit_type && <span className="text-[10px] text-slate-400 ml-1">({p.unit_type})</span>}
+                        {p.unit_type && <span className="text-[10px] text-muted-foreground ml-1 font-normal">({p.unit_type})</span>}
                       </td>
-                      <td className="p-3 text-slate-600">₱{p.cost_price.toFixed(2)}</td>
-                      <td className="p-3 text-slate-900 font-bold">₱{p.selling_price.toFixed(2)}</td>
-                      <td className="p-3 text-emerald-600 font-medium">
+                      <td className="p-3.5 text-muted-foreground">₱{p.cost_price.toFixed(2)}</td>
+                      <td className="p-3.5 text-foreground font-bold">₱{p.selling_price.toFixed(2)}</td>
+                      <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
                         +₱{margin.toFixed(2)}
                       </td>
-                      <td className="p-3 font-bold text-sm">
+                      <td className="p-3.5 font-bold text-sm text-foreground">
                         {p.stock_quantity}
                       </td>
-                      <td className="p-3">
+                      <td className="p-3.5">
                         {isOut ? (
-                          <Badge variant="destructive" className="text-[10px]">Out of Stock</Badge>
+                          <Badge variant="destructive" className="text-[10px] font-medium bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">Out of Stock</Badge>
                         ) : isLow ? (
-                          <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px]">Low Stock (Limit: {p.reorder_level})</Badge>
+                          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-medium">Low Stock ({p.reorder_level})</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-800">In Stock</Badge>
+                          <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">In Stock</Badge>
                         )}
                       </td>
-                      <td className="p-3 text-right space-x-1">
+                      <td className="p-3.5 text-right space-x-1.5">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          className="h-7 text-xs font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                           onClick={() => openRestockModal(p)}
                         >
                           <ArrowUpDown className="w-3 h-3 mr-1" /> Restock
@@ -388,7 +411,7 @@ export default function InventoryManager(): React.JSX.Element {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs"
+                          className="h-7 text-xs font-medium border-input hover:bg-accent text-foreground cursor-pointer"
                           onClick={() => openEditModal(p)}
                         >
                           <Edit className="w-3 h-3 mr-1" /> Edit
@@ -396,7 +419,7 @@ export default function InventoryManager(): React.JSX.Element {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer rounded-lg"
                           onClick={() => handleDeleteProduct(p.product_id, p.product_name)}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -415,19 +438,19 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 1. RESTOCK MODAL */}
       <Dialog open={isRestockOpen} onOpenChange={setIsRestockOpen}>
-        <DialogContent className="sm:max-w-[360px]">
+        <DialogContent className="sm:max-w-[360px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Restock Item</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Restock Item</DialogTitle>
           </DialogHeader>
           {selectedProduct && (
             <form onSubmit={handleRestock} className="space-y-3 pt-2">
-              <div className="bg-slate-50 p-3 rounded-lg border text-xs space-y-1">
-                <p className="font-bold text-slate-800">{selectedProduct.product_name}</p>
-                <p className="text-slate-500">Current Stock: <span className="font-semibold text-slate-900">{selectedProduct.stock_quantity}</span></p>
+              <div className="bg-muted/40 p-3 rounded-xl border border-border text-xs space-y-1">
+                <p className="font-bold text-foreground">{selectedProduct.product_name}</p>
+                <p className="text-muted-foreground">Current Stock: <span className="font-semibold text-foreground">{selectedProduct.stock_quantity}</span></p>
               </div>
 
-              <div>
-                <Label className="text-xs">Quantity to Add</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Quantity to Add</Label>
                 <Input
                   type="number"
                   min="1"
@@ -435,12 +458,12 @@ export default function InventoryManager(): React.JSX.Element {
                   placeholder="e.g. 24"
                   value={addStockQty}
                   onChange={(e) => setAddStockQty(e.target.value)}
-                  className="text-sm font-semibold"
+                  className="text-sm font-semibold bg-background"
                 />
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">
                   Confirm Restock
                 </Button>
               </DialogFooter>
@@ -451,32 +474,32 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 2. EDIT PRODUCT MODAL */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Edit Product Details</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Edit Product Details</DialogTitle>
           </DialogHeader>
           {selectedProduct && (
             <form onSubmit={handleEditProduct} className="space-y-3 pt-2">
-              <div>
-                <Label className="text-xs">Product Name</Label>
-                <Input required value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Product Name</Label>
+                <Input required value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-background" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Cost Price (₱)</Label>
-                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} />
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Cost Price (₱)</Label>
+                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} className="bg-background" />
                 </div>
-                <div>
-                  <Label className="text-xs">Selling Price (₱)</Label>
-                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(e) => setEditSellingPrice(e.target.value)} />
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Selling Price (₱)</Label>
+                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(e) => setEditSellingPrice(e.target.value)} className="bg-background" />
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Reorder Level Alert Limit</Label>
-                <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Reorder Level Alert Limit</Label>
+                <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} className="bg-background" />
               </div>
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full">Save Changes</Button>
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Changes</Button>
               </DialogFooter>
             </form>
           )}
@@ -485,42 +508,42 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 3. ADD NEW PRODUCT MODAL */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Add New Inventory Product</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Add New Inventory Product</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddProduct} className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs">Product Name</Label>
-              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Product Name</Label>
+              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background" />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Cost Price (₱)</Label>
-                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Cost Price (₱)</Label>
+                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} className="bg-background" />
               </div>
-              <div>
-                <Label className="text-xs">Selling Price (₱)</Label>
-                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Selling Price (₱)</Label>
+                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} className="bg-background" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Initial Stock</Label>
-                <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Initial Stock</Label>
+                <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} className="bg-background" />
               </div>
-              <div>
-                <Label className="text-xs">Reorder Level Alert</Label>
-                <Input type="number" value={newReorderLevel} onChange={(e) => setNewReorderLevel(e.target.value)} />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Reorder Level Alert</Label>
+                <Input type="number" value={newReorderLevel} onChange={(e) => setNewReorderLevel(e.target.value)} className="bg-background" />
               </div>
             </div>
 
-            <div>
-              <Label className="text-xs">Unit Type</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Unit Type</Label>
               <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
-                <SelectTrigger className="text-xs">
+                <SelectTrigger className="text-xs bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -535,7 +558,7 @@ export default function InventoryManager(): React.JSX.Element {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">Save Product</Button>
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>

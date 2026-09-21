@@ -340,69 +340,82 @@ export default function POS(): React.JSX.Element {
   });
 
   return (
-    <div className="flex h-screen p-1 dark:bg-slate-900 gap-1">
+    <div className="flex h-full p-0.5 bg-background gap-4 overflow-hidden">
       {/* LEFT: Product Catalog & Header */}
-      <Card className="w-2/3 flex flex-col justify-between bg-[#F2F4F7] dark:bg-[#1C1C1D] border border-neutral-900/30 dark:border-white/10">
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-primary" /> Products
+      <Card className="w-2/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+          <div className="flex justify-between items-center gap-2">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              Products Catalog
             </CardTitle>
-            <div className='relative w-64'>
+            
+            <div className="relative w-60">
               <input
                 type="text"
-                placeholder='Search Products...'
+                placeholder="Search Products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-sm border border-slate-300 rounded-md px-3 py-2 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:border-emerald-500" />
+                className="w-full text-xs bg-background border border-input rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all" 
+              />
             </div>
-            <div className="flex gap-2 transition">
-              <Button size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50 cursor-pointer" onClick={() => setActiveModal('digital')}>
-                <Smartphone className="w-4 h-4 mr-1" /> GCash/E-Load
+
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="text-xs font-semibold text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-400/30 cursor-pointer" onClick={() => setActiveModal('digital')}>
+                <Smartphone className="w-3.5 h-3.5 mr-1" /> GCash / E-Load
               </Button>
-              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 cursor-pointer" onClick={() => setActiveModal('customer')}>
-                <UserPlus className="w-4 h-4 mr-1" /> Customer
+              <Button size="sm" variant="outline" className="text-xs font-semibold text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-400/30 cursor-pointer" onClick={() => setActiveModal('customer')}>
+                <UserPlus className="w-3.5 h-3.5 mr-1" /> Customer
               </Button>
-              <Button size="sm" className={"cursor-pointer"} onClick={() => setActiveModal('product')}>
-                <PackagePlus className="w-4 h-4 mr-1 " /> Add Product
+              <Button size="sm" className="text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20 cursor-pointer" onClick={() => setActiveModal('product')}>
+                <PackagePlus className="w-3.5 h-3.5 mr-1" /> Add Product
               </Button>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto p-2">
+        <CardContent className="flex-1 overflow-y-auto p-4">
           {realProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20 border-2 border-dashed rounded-lg">
-              <ShoppingCart className="w-12 h-12 mb-2 text-slate-300" />
-              <p className="font-semibold text-slate-600">No products available</p>
-              <p className="text-xs">Click the buttons above to populate your inventory or process digital transactions.</p>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 border-2 border-dashed border-border/60 rounded-xl bg-muted/10">
+              <ShoppingCart className="w-12 h-12 mb-2 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">No products available</p>
+              <p className="text-xs text-muted-foreground mt-1">Click the buttons above to populate your inventory or process digital transactions.</p>
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20 border-2 border-dashed rounded-lg">
-              <ShoppingCart className="w-12 h-12 mb-2 text-slate-300" />
-              <p className="font-semibold text-slate-600">No matching products found</p>
-              <p className="text-xs">Try searching with a different keyword.</p>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 border-2 border-dashed border-border/60 rounded-xl bg-muted/10">
+              <ShoppingCart className="w-12 h-12 mb-2 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">No matching products found</p>
+              <p className="text-xs text-muted-foreground mt-1">Try searching with a different keyword.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-3">
               {filteredProducts.map((product) => (
                 <Card
                   key={product.product_id}
-
-                  className={`transition duration-300 shadow-sm flex flex-col justify-between bg-[#F9FAFC] dark:bg-[#252728] border    ${product.stock_quantity > 0
-                      ? 'hover:scale-102 hover:shadow hover:border-emerald-500'
-                      : 'opacity-60 cursor-not-allowed'
-                    }`}
+                  className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl ${
+                    product.stock_quantity > 0
+                      ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
+                      : 'opacity-60 cursor-not-allowed bg-muted/20'
+                  }`}
                 >
-                  <CardContent className="flex flex-col justify-between h-full p-3 border-slate-50 dark:border-slate-50">
+                  <CardContent className="flex flex-col justify-between h-full p-3.5">
                     <div>
-                      <h4 className="font-semibold text-[#010415] dark:text-slate-50 text-sm line-clamp-1">{product.product_name}</h4>
-                      <Badge variant={product.stock_quantity > 0 ? "secondary" : "destructive"} className="mt-1 text-[#010415] dark:text-slate-50 text-[10px]">
+                      <h4 className="font-semibold text-foreground text-sm line-clamp-1">{product.product_name}</h4>
+                      <Badge 
+                        variant={product.stock_quantity > 0 ? "secondary" : "destructive"} 
+                        className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${
+                          product.stock_quantity > 0 
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' 
+                            : ''
+                        }`}
+                      >
                         Stock: {product.stock_quantity}
                       </Badge>
                     </div>
-                    <div className="mt-1 flex items-center justify-between pt-1 border-t border-slate-100">
-                      <div className="text-emerald-700 font-bold text-base">
+                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50">
+                      <div className="text-primary font-bold text-base">
                         ₱{product.selling_price.toFixed(2)}
                       </div>
 
@@ -414,8 +427,8 @@ export default function POS(): React.JSX.Element {
                           addToCart(product);
                         }}
                         className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium 
-                        text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50 
-                        disabled:cursor-not-allowed shadow-sm cursor-pointer">
+                        text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 
+                        disabled:cursor-not-allowed shadow-sm hover:shadow-emerald-600/20 cursor-pointer">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                         </svg>
@@ -431,52 +444,57 @@ export default function POS(): React.JSX.Element {
       </Card>
 
       {/* RIGHT: Cart & Payment Details */}
-      <Card className="w-1/3 flex flex-col justify-between bg-[F2F4F7] dark:bg-[#1C1C1D] border border-neutral-900/30 dark:border-white/10">
-        <CardHeader>
-          <CardTitle className="text-xl">Current Order</CardTitle>
+      <Card className="w-1/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+          <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+            <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            Current Order
+          </CardTitle>
         </CardHeader>
 
-        <CardContent className="flex-1 flex flex-col justify-between">
+        <CardContent className="flex-1 flex flex-col justify-between p-4">
           {/* Cart List */}
-          <div className="flex-1 flex flex-col overflow-y-auto border-b border-neutral-900/30 dark:border-white/10 pb-2">
+          <div className="flex-1 flex flex-col overflow-y-auto border-b border-border/60 pb-2 space-y-1">
             {cart.length === 0 ? (
-              <div className=' flex-1 flex flex-col items-center justify-center  text-neutral-400 dark:textslate-500 py-10'>
-                <ShoppingCart className='w-8 h-8 mb-2 opacity-80' />
-                <p className="text-sm font-medium opacity-80">Cart is empty</p>
-                <p className='text-xs mt-0.5 opacity-80'>Add products to get started</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-10">
+                <ShoppingCart className="w-9 h-9 mb-2 opacity-50 text-emerald-500" />
+                <p className="text-sm font-semibold text-foreground">Cart is empty</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Add products to get started</p>
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.product_id} className="flex justify-between items-center my-2 text-xs">
+                <div key={item.product_id} className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/40 transition-colors text-xs">
                   <div className="flex-1 pr-2">
-                    <p className="font-medium text-slate-black dark:text-slate-100">{item.product_name}</p>
-                    <p className="text-black dark:text-slate-100">₱{item.selling_price.toFixed(2)}</p>
+                    <p className="font-semibold text-foreground line-clamp-1">{item.product_name}</p>
+                    <p className="text-muted-foreground">₱{item.selling_price.toFixed(2)}</p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="outline" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.product_id, -1)}>
+                  <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50">
+                    <Button size="icon" variant="ghost" className="h-5 w-5 rounded cursor-pointer hover:bg-background" onClick={() => updateQuantity(item.product_id, -1)}>
                       <Minus className="w-3 h-3" />
                     </Button>
-                    <span className="w-6 text-center font-semibold">{item.quantity}</span>
-                    <Button size="icon" variant="outline" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.product_id, 1)}>
+                    <span className="w-5 text-center font-bold text-foreground">{item.quantity}</span>
+                    <Button size="icon" variant="ghost" className="h-5 w-5 rounded cursor-pointer hover:bg-background" onClick={() => updateQuantity(item.product_id, 1)}>
                       <Plus className="w-3 h-3" />
                     </Button>
                   </div>
-                  <div className="w-14 text-right font-bold">₱{item.subtotal.toFixed(2)}</div>
+                  <div className="w-16 text-right font-bold text-primary">₱{item.subtotal.toFixed(2)}</div>
                 </div>
               ))
             )}
           </div>
 
-          <div className="space-y-3 mt-3">
+          <div className="space-y-3 pt-3">
             {/* Searchable Customer Dropdown */}
             <div className="relative">
               <div className="flex justify-between items-center mb-1">
-                <Label className="text-xs flex items-center gap-1">
-                  <User className="w-3 h-3" /> Customer
+                <Label className="text-xs font-semibold flex items-center gap-1 text-foreground">
+                  <User className="w-3.5 h-3.5 text-emerald-500" /> Customer
                 </Label>
                 <button
                   onClick={() => setActiveModal('customer')}
-                  className="text-xs text-primary hover:underline cursor-pointer"
+                  className="text-xs text-primary font-medium hover:underline cursor-pointer"
                 >
                   + New Customer
                 </button>
@@ -486,9 +504,9 @@ export default function POS(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setCustomerOpen(!customerOpen)}
-                className="w-full flex items-center justify-between text-xs px-3 py-2 border border-neutral-900/30 dark:border-white/30 rounded-md bg-transparent text-left hover:bg-accent cursor-pointer"
+                className="w-full flex items-center justify-between text-xs px-3 py-2 border border-input rounded-lg bg-background text-foreground text-left hover:bg-accent/50 focus:ring-2 focus:ring-primary/40 cursor-pointer transition-all"
               >
-                <span className="truncate">
+                <span className="truncate font-medium">
                   {selectedCustomer && selectedCustomer !== 'walk-in'
                     ? (() => {
                       const c = customers.find(
@@ -498,20 +516,20 @@ export default function POS(): React.JSX.Element {
                     })()
                     : 'Walk-in Customer'}
                 </span>
-                <span className="text-neutral-400 text-[10px]">▼</span>
+                <span className="text-muted-foreground text-[10px]">▼</span>
               </button>
 
               {/* Dropdown Menu Overlay */}
               {customerOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#F1F5F9] dark:bg-[#1C1C1D] border border-neutral-800 rounded-md shadow-lg overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl overflow-hidden">
                   {/* Search Input Box */}
-                  <div className="p-2 border-b border-neutral-800">
+                  <div className="p-2 border-b border-border bg-muted/30">
                     <Input
                       type="text"
                       placeholder="Search customer..."
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="text-xs h-8 bg-[#F1F5F9] dark:bg-neutral-900 border-neutral-700"
+                      className="text-xs h-8 bg-background border-input"
                       autoFocus
                     />
                   </div>
@@ -525,7 +543,7 @@ export default function POS(): React.JSX.Element {
                         setCustomerOpen(false);
                         setCustomerSearch('');
                       }}
-                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold ' : ''
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-accent flex items-center justify-between transition-colors ${selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold text-primary bg-primary/5' : ''
                         }`}
                     >
                       Walk-in Customer
@@ -541,15 +559,15 @@ export default function POS(): React.JSX.Element {
                             setCustomerOpen(false);
                             setCustomerSearch('');
                           }}
-                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${selectedCustomer === c.customer_id.toString() ? 'font-bold bg-neutral-800/50' : ''
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-accent flex items-center justify-between transition-colors ${selectedCustomer === c.customer_id.toString() ? 'font-bold text-primary bg-primary/5' : ''
                             }`}
                         >
                           <span>{c.first_name} {c.last_name}</span>
-                          <span className="text-neutral-600 text-[11px]">(Bal: ₱{c.current_balance})</span>
+                          <span className="text-muted-foreground text-[11px]">(Bal: ₱{c.current_balance})</span>
                         </div>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-xs text-neutral-500 text-center">
+                      <div className="px-3 py-2 text-xs text-muted-foreground text-center">
                         No customer found
                       </div>
                     )}
@@ -559,17 +577,21 @@ export default function POS(): React.JSX.Element {
             </div>
 
             {/* Payment Method */}
-            <div className="grid grid-cols-3 gap-2 ">
+            <div className="grid grid-cols-3 gap-2">
               {(['Cash', 'Utang', 'Digital'] as const).map((type) => {
                 const isUtangDisabled = type === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in');
+                const isSelected = paymentType === type;
                 return (
                   <Button
                     key={type}
                     type="button"
                     size="sm"
-                    variant={paymentType === type ? 'default' : 'outline'}
-                    className={`text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${paymentType === type ? '' : 'border border-slate-300 hover:border-slate-400'
-                      }`}
+                    variant={isSelected ? 'default' : 'outline'}
+                    className={`text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all ${
+                      isSelected 
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20' 
+                        : 'border-input hover:bg-accent text-foreground'
+                    }`}
                     disabled={isUtangDisabled}
                     onClick={() => setPaymentType(type)}
                   >
@@ -581,33 +603,33 @@ export default function POS(): React.JSX.Element {
 
             {/* Cash Tendered */}
             {paymentType === 'Cash' && (
-              <div>
-                <Label className="text-xs mb-1">Amount Tendered</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-foreground">Amount Tendered</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
                   value={amountTendered}
                   onChange={(e) => setAmountTendered(e.target.value)}
-                  className="text-sm "
+                  className="text-sm bg-background border-input"
                 />
               </div>
             )}
           </div>
 
           {/* Totals & Submit */}
-          <div className="border-t pt-3 mt-auto">
-            <div className="flex justify-between items-center text-slate-800 dark:text-slate-100 mb-1">
+          <div className="border-t border-border/60 pt-3.5 mt-3 space-y-3">
+            <div className="flex justify-between items-center text-foreground">
               <span className="font-semibold text-sm">Total</span>
-              <span className="font-bold text-xl">₱{totalAmount.toFixed(2)}</span>
+              <span className="font-bold text-2xl text-emerald-600 dark:text-emerald-400">₱{totalAmount.toFixed(2)}</span>
             </div>
             {paymentType === 'Cash' && (
-              <div className="flex justify-between text-xs text-slate-800 dark:text-slate-100 mb-3">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Change</span>
-                <span>₱{changeGiven.toFixed(2)}</span>
+                <span className="font-semibold text-foreground">₱{changeGiven.toFixed(2)}</span>
               </div>
             )}
 
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-700 cursor-pointer" size="lg" onClick={handleCheckout}>
+            <Button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-lg shadow-emerald-600/25 cursor-pointer rounded-xl py-5" size="lg" onClick={handleCheckout}>
               Complete Transaction
             </Button>
           </div>
@@ -618,31 +640,31 @@ export default function POS(): React.JSX.Element {
 
       {/* 1. Add Product Dialog */}
       <Dialog open={activeModal === 'product'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px] ">
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Add New Product</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Add New Product</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddProduct} className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs">Product Name</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Product Name</Label>
               <Input required placeholder="e.g. Great Taste White" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Cost Price (₱)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Cost Price (₱)</Label>
                 <Input type="number" step="0.01" placeholder="10.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} />
               </div>
-              <div>
-                <Label className="text-xs">Selling Price (₱)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Selling Price (₱)</Label>
                 <Input type="number" step="0.01" required placeholder="12.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Stock Quantity</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Stock Quantity</Label>
               <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} />
             </div>
-            <DialogFooter className="pt-2 ">
-              <Button type="submit" className="w-full cursor-pointer">Save Product</Button>
+            <DialogFooter className="pt-2">
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -650,31 +672,31 @@ export default function POS(): React.JSX.Element {
 
       {/* 2. Add Customer Dialog */}
       <Dialog open={activeModal === 'customer'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>Register New Customer</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">Register New Customer</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddCustomer} className="space-y-3 pt-2">
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">First Name</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">First Name</Label>
                 <Input required placeholder="Juan" value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} />
               </div>
-              <div>
-                <Label className="text-xs">Last Name</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Last Name</Label>
                 <Input required placeholder="Dela Cruz" value={newLastName} onChange={(e) => setNewLastName(e.target.value)} />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Phone Number</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Phone Number</Label>
               <Input placeholder="09171234567" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
             </div>
-            <div>
-              <Label className="text-xs">Credit Limit (₱)</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Credit Limit (₱)</Label>
               <Input type="number" value={newCreditLimit} onChange={(e) => setNewCreditLimit(e.target.value)} />
             </div>
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 cursor-pointer">Register Customer</Button>
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Register Customer</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -682,13 +704,13 @@ export default function POS(): React.JSX.Element {
 
       {/* 3. Digital Service Dialog */}
       <Dialog open={activeModal === 'digital'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
-            <DialogTitle>GCash / E-Load Transaction</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-foreground">GCash / E-Load Transaction</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddDigitalService} className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs">Service Type</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Service Type</Label>
               <Select value={serviceType} onValueChange={(val) => setServiceType(val ?? '')}>
                 <SelectTrigger>
                   <SelectValue />
@@ -700,26 +722,26 @@ export default function POS(): React.JSX.Element {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Account / Phone Number</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Account / Phone Number</Label>
               <Input placeholder="09170000000" value={serviceAccount} onChange={(e) => setServiceAccount(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Amount (₱)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Amount (₱)</Label>
                 <Input type="number" required placeholder="500.00" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} />
               </div>
-              <div>
-                <Label className="text-xs">Convenience Fee (₱)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Convenience Fee (₱)</Label>
                 <Input type="number" value={convenienceFee} onChange={(e) => setConvenienceFee(e.target.value)} />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Reference Number (Optional)</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Reference Number (Optional)</Label>
               <Input placeholder="Ref # 1002391" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
             </div>
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 cursor-pointer">Add Service to Cart</Button>
+              <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold cursor-pointer">Add Service to Cart</Button>
             </DialogFooter>
           </form>
         </DialogContent>
