@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { 
-  User, 
-  Search, 
-  History, 
-  DollarSign, 
-  CheckCircle, 
+import {
+  User,
+  Search,
+  History,
+  DollarSign,
+  CheckCircle,
   Receipt
 } from 'lucide-react';
 
@@ -171,7 +171,7 @@ export default function CustomerLedger(): React.JSX.Element {
       setIsPaymentModalOpen(false);
       setPaymentAmount('');
       setPaymentNotes('');
-      
+
       // Refresh customer list and active history
       await fetchCustomers();
       handleSelectCustomer({ ...selectedCustomer, current_balance: newBalance });
@@ -197,7 +197,7 @@ export default function CustomerLedger(): React.JSX.Element {
           <CardDescription>Select a customer to view ledger and record payments</CardDescription>
 
           <div className="relative mt-2">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
             <Input
               placeholder="Search customer..."
               value={searchQuery}
@@ -207,7 +207,7 @@ export default function CustomerLedger(): React.JSX.Element {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto space-y-2 pr-2">
+        <CardContent className="flex-1 overflow-y-auto space-y-2 pr-2 py-2">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-10 text-slate-400 text-xs">No customers found</div>
           ) : (
@@ -219,24 +219,22 @@ export default function CustomerLedger(): React.JSX.Element {
                 <div
                   key={cust.customer_id}
                   onClick={() => handleSelectCustomer(cust)}
-                  className={`p-3 rounded-lg border cursor-pointer transition flex justify-between items-center ${
-                    isSelected
+                  className={`p-3 rounded-lg border cursor-pointer transition duration-300 shadow-sm flex justify-between items-center ${isSelected
                       ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
-                  }`}
+                      : 'border border-neutral-900/30 dark:border-white/10 bg-[#F2F4F7] dark:bg-[#252728] hover:scale-102 hover:shadow hover:border-emerald-500 dark:hover:border-emerald-500'
+                    }`}
                 >
                   <div>
-                    <p className="font-semibold text-slate-800 text-sm">
+                    <p className="font-semibold text-010415 dark:text-slate-50 text-sm ">
                       {cust.first_name} {cust.last_name}
                     </p>
-                    <p className="text-[11px] text-slate-400">{cust.phone_number || 'No phone'}</p>
+                    <p className="text-[11px] text-010415">{cust.phone_number || 'No phone'}</p>
                   </div>
 
                   <div className="text-right">
                     <p
-                      className={`font-bold text-sm ${
-                        cust.current_balance > 0 ? 'text-red-600' : 'text-emerald-600'
-                      }`}
+                      className={`font-bold text-sm ${cust.current_balance > 0 ? 'text-[#FF5B5B]' : 'text-emerald-600'
+                        }`}
                     >
                       ₱{cust.current_balance.toFixed(2)}
                     </p>
@@ -272,29 +270,29 @@ export default function CustomerLedger(): React.JSX.Element {
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                 >
-                  <DollarSign className="w-4 h-4 mr-1" /> Pay Utang
+                  <DollarSign className="w-4 h-4 mr-1 " /> Pay Utang
                 </Button>
               </div>
 
               {/* Summary Metrics */}
               <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
                   <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Total Debt</p>
-                  <p className="text-xl font-bold text-red-600">
+                  <p className="text-xl font-bold text-[#FF5B5B]">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
                   <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Credit Limit</p>
                   <p className="text-xl font-bold text-slate-800 dark:text-slate-50">
                     ₱{selectedCustomer.credit_limit.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="bg-slate-100 dark:bg-[#1C1C1D] p-3 rounded-lg border border-neutral-900/30 dark:border-white/10">
                   <p className="text-[11px] text-slate-500 dark:text-slate-50 uppercase font-semibold">Available Credit</p>
                   <p className="text-xl font-bold text-emerald-600">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
@@ -332,17 +330,16 @@ export default function CustomerLedger(): React.JSX.Element {
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="font-bold text-sm text-red-600">
+                            <span className="font-bold text-sm text-[#FF5B5B]">
                               ₱{tx.amount.toFixed(2)}
                             </span>
                             <div className="mt-0.5">
                               <Badge
                                 variant={tx.status === 'Paid' ? 'secondary' : 'outline'}
-                                className={`text-[10px] ${
-                                  tx.status === 'Unpaid'
-                                    ? 'border-red-300 text-red-600 bg-red-50'
+                                className={`text-[10px] ${tx.status === 'Unpaid'
+                                    ? 'border-red-300 text-[#FF5B5B] bg-red-50'
                                     : 'border-emerald-300 text-emerald-600 bg-emerald-50'
-                                }`}
+                                  }`}
                               >
                                 {tx.status}
                               </Badge>

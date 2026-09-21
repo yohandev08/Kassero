@@ -334,10 +334,10 @@ export default function POS(): React.JSX.Element {
   };
 
   //Filter Customer
-    const filteredCustomers = customers.filter((c) => {
-      const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
-      return fullName.includes(customerSearch.toLowerCase());
-    });
+  const filteredCustomers = customers.filter((c) => {
+    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+    return fullName.includes(customerSearch.toLowerCase());
+  });
 
   return (
     <div className="flex h-screen p-1 dark:bg-slate-900 gap-1">
@@ -389,16 +389,15 @@ export default function POS(): React.JSX.Element {
                 <Card
                   key={product.product_id}
 
-                  className={`transition duration-300 shadow-sm flex flex-col justify-between bg-[#2A2A2A] dark:bg-[#252728] border    ${
-                    product.stock_quantity > 0
-                    ? 'hover:scale-102 hover:shadow hover:border-emerald-500'
-                    : 'opacity-60 cursor-not-allowed'
-                  }`}
+                  className={`transition duration-300 shadow-sm flex flex-col justify-between bg-[#F9FAFC] dark:bg-[#252728] border    ${product.stock_quantity > 0
+                      ? 'hover:scale-102 hover:shadow hover:border-emerald-500'
+                      : 'opacity-60 cursor-not-allowed'
+                    }`}
                 >
                   <CardContent className="flex flex-col justify-between h-full p-3 border-slate-50 dark:border-slate-50">
                     <div>
-                      <h4 className="font-semibold text-slate-50 text-sm line-clamp-1">{product.product_name}</h4>
-                      <Badge variant={product.stock_quantity > 0 ? "secondary" : "destructive"} className="mt-1 text-[10px]">
+                      <h4 className="font-semibold text-[#010415] dark:text-slate-50 text-sm line-clamp-1">{product.product_name}</h4>
+                      <Badge variant={product.stock_quantity > 0 ? "secondary" : "destructive"} className="mt-1 text-[#010415] dark:text-slate-50 text-[10px]">
                         Stock: {product.stock_quantity}
                       </Badge>
                     </div>
@@ -439,9 +438,13 @@ export default function POS(): React.JSX.Element {
 
         <CardContent className="flex-1 flex flex-col justify-between">
           {/* Cart List */}
-          <div className="max-h-52 overflow-y-auto border-b border-neutral-900/30 dark:border-white/10 pb-2">
+          <div className="flex-1 flex flex-col overflow-y-auto border-b border-neutral-900/30 dark:border-white/10 pb-2">
             {cart.length === 0 ? (
-              <p className="text-neutral-900/70 dark:text-slate-100 text-center py-8 text-sm">Cart is empty</p>
+              <div className=' flex-1 flex flex-col items-center justify-center  text-neutral-400 dark:textslate-500 py-10'>
+                <ShoppingCart className='w-8 h-8 mb-2 opacity-80' />
+                <p className="text-sm font-medium opacity-80">Cart is empty</p>
+                <p className='text-xs mt-0.5 opacity-80'>Add products to get started</p>
+              </div>
             ) : (
               cart.map((item) => (
                 <div key={item.product_id} className="flex justify-between items-center my-2 text-xs">
@@ -488,11 +491,11 @@ export default function POS(): React.JSX.Element {
                 <span className="truncate">
                   {selectedCustomer && selectedCustomer !== 'walk-in'
                     ? (() => {
-                        const c = customers.find(
-                          (cust) => cust.customer_id.toString() === selectedCustomer
-                        );
-                        return c ? `${c.first_name} ${c.last_name}` : 'Walk-in Customer';
-                      })()
+                      const c = customers.find(
+                        (cust) => cust.customer_id.toString() === selectedCustomer
+                      );
+                      return c ? `${c.first_name} ${c.last_name}` : 'Walk-in Customer';
+                    })()
                     : 'Walk-in Customer'}
                 </span>
                 <span className="text-neutral-400 text-[10px]">▼</span>
@@ -522,9 +525,8 @@ export default function POS(): React.JSX.Element {
                         setCustomerOpen(false);
                         setCustomerSearch('');
                       }}
-                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${
-                        selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold ' : ''
-                      }`}
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold ' : ''
+                        }`}
                     >
                       Walk-in Customer
                     </div>
@@ -539,9 +541,8 @@ export default function POS(): React.JSX.Element {
                             setCustomerOpen(false);
                             setCustomerSearch('');
                           }}
-                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${
-                            selectedCustomer === c.customer_id.toString() ? 'font-bold bg-neutral-800/50' : ''
-                          }`}
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-neutral-400 dark:hover:bg-neutral-800 flex items-center justify-between ${selectedCustomer === c.customer_id.toString() ? 'font-bold bg-neutral-800/50' : ''
+                            }`}
                         >
                           <span>{c.first_name} {c.last_name}</span>
                           <span className="text-neutral-600 text-[11px]">(Bal: ₱{c.current_balance})</span>
@@ -594,7 +595,7 @@ export default function POS(): React.JSX.Element {
           </div>
 
           {/* Totals & Submit */}
-          <div className="border-t pt-3 mt-3">
+          <div className="border-t pt-3 mt-auto">
             <div className="flex justify-between items-center text-slate-800 dark:text-slate-100 mb-1">
               <span className="font-semibold text-sm">Total</span>
               <span className="font-bold text-xl">₱{totalAmount.toFixed(2)}</span>
