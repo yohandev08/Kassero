@@ -3,6 +3,8 @@ import { ShoppingCart, Users, Package, BarChart3, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { UserButton } from '@clerk/react';
+import { useSyncUserProfile } from '@/hooks/useSyncUserProfile';
 
 import POS from './POS';
 import CustomerLedger from './CustomerLedger';
@@ -10,6 +12,7 @@ import InventoryManager from './InventoryManager';
 import SalesAnalytics from './SalesAnalytics';
 
 export default function Layout(): React.JSX.Element {
+  useSyncUserProfile();
   const [activeTab, setActiveTab] = useState<'pos' | 'ledger' | 'inventory' | 'analytics'>('pos');
   const { theme, toggleTheme } = useTheme();
 
@@ -81,8 +84,12 @@ export default function Layout(): React.JSX.Element {
           </nav>
         </div>
         
-        {/* Footer Theme Toggle */}
+        {/* Footer Auth & Theme Toggle */}
         <div className="border-t border-sidebar-border pt-3.5 space-y-3">
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-sidebar-accent/50 border border-sidebar-border/40">
+            <UserButton showName />
+          </div>
+
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2 text-xs font-medium text-sidebar-foreground/70">
               {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-emerald-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
@@ -106,12 +113,35 @@ export default function Layout(): React.JSX.Element {
       </aside>
 
       {/* MAIN VIEW AREA */}
-      <main className="flex-1 overflow-auto bg-background p-6">
-        {activeTab === 'pos' && <POS />}
-        {activeTab === 'ledger' && <CustomerLedger />}
-        {activeTab === 'inventory' && <InventoryManager />}
-        {activeTab === 'analytics' && <SalesAnalytics />}
-      </main>
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* TOP NAVIGATION BAR */}
+        <header className="h-14 border-b border-border/40 px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Current View
+            </span>
+            <span className="text-muted-foreground/40">•</span>
+            <span className="text-sm font-semibold text-foreground">
+              {activeTab === 'pos' && 'Point of Sale (POS)'}
+              {activeTab === 'ledger' && 'Utang & Customer Ledger'}
+              {activeTab === 'inventory' && 'Inventory & Stock Management'}
+              {activeTab === 'analytics' && 'Sales & Profit Analytics'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <UserButton showName />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto bg-background p-6">
+          {activeTab === 'pos' && <POS />}
+          {activeTab === 'ledger' && <CustomerLedger />}
+          {activeTab === 'inventory' && <InventoryManager />}
+          {activeTab === 'analytics' && <SalesAnalytics />}
+        </main>
+      </div>
     </div>
   );
-}
+}
+
