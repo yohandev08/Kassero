@@ -1,13 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import type { Product } from '@/types';
+import {
+  fetchProducts as fetchProductsService,
+  addProduct as addProductService,
+  updateProduct,
+  archiveProducts,
+  updateStockQuantity,
+} from '@/services/productService';
 import {
   Package,
   Search,
   PlusCircle,
   AlertTriangle,
-  RefreshCw,
   Edit,
   Trash2,
   PackageCheck,
@@ -35,19 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-// --- Type Definitions ---
-interface Product {
-  product_id: number;
-  product_name: string;
-  category?: string;
-  unit_type?: string;
-  cost_price: number;
-  selling_price: number;
-  stock_quantity: number;
-  reorder_level: number;
-  updated_at?: string;
-}
 
 type FilterTab = 'all' | 'low_stock' | 'out_of_stock';
 
@@ -80,17 +73,14 @@ export default function InventoryManager(): React.JSX.Element {
   const [newReorderLevel, setNewReorderLevel] = useState<string>('5');
   const [newUnitType, setNewUnitType] = useState<string>('pcs');
 
-  // 1. Fetch Products from Supabase
+  // 1. Fetch Products (via service)
   useEffect(() => {
     fetchProducts();
   }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('product_name', { ascending: true });
+    const { data, error } = await fetchProductsService();
 
     if (error) {
       console.error('Error loading inventory:', error);
@@ -112,10 +102,7 @@ export default function InventoryManager(): React.JSX.Element {
 
     const updatedQty = selectedProduct.stock_quantity + qtyToAdd;
 
-    const { error } = await supabase
-      .from('products')
-      .update({ stock_quantity: updatedQty })
-      .eq('product_id', selectedProduct.product_id);
+    const { error } = await updateStockQuantity(selectedProduct.product_id, updatedQty);
 
     if (error) {
       alert('Failed to restock product: ' + error.message);
@@ -132,15 +119,12 @@ export default function InventoryManager(): React.JSX.Element {
     e.preventDefault();
     if (!selectedProduct) return;
 
-    const { error } = await supabase
-      .from('products')
-      .update({
-        product_name: editName,
-        cost_price: parseFloat(editCostPrice) || 0,
-        selling_price: parseFloat(editSellingPrice) || 0,
-        reorder_level: parseInt(editReorderLevel, 10) || 5,
-      })
-      .eq('product_id', selectedProduct.product_id);
+    const { error } = await updateProduct(selectedProduct.product_id, {
+      product_name: editName,
+      cost_price: parseFloat(editCostPrice) || 0,
+      selling_price: parseFloat(editSellingPrice) || 0,
+      reorder_level: parseInt(editReorderLevel, 10) || 5,
+    });
 
     if (error) {
       alert('Failed to update product: ' + error.message);
@@ -155,16 +139,14 @@ export default function InventoryManager(): React.JSX.Element {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { error } = await supabase.from('products').insert([
-      {
-        product_name: newName,
-        cost_price: parseFloat(newCostPrice) || 0,
-        selling_price: parseFloat(newSellingPrice) || 0,
-        stock_quantity: parseInt(newStock, 10) || 0,
-        reorder_level: parseInt(newReorderLevel, 10) || 5,
-        unit_type: newUnitType,
-      },
-    ]);
+    const { error } = await addProductService({
+      product_name: newName,
+      cost_price: parseFloat(newCostPrice) || 0,
+      selling_price: parseFloat(newSellingPrice) || 0,
+      stock_quantity: parseInt(newStock, 10) || 0,
+      reorder_level: parseInt(newReorderLevel, 10) || 5,
+      unit_type: newUnitType,
+    });
 
     if (error) {
       alert('Failed to add product: ' + error.message);
@@ -176,14 +158,14 @@ export default function InventoryManager(): React.JSX.Element {
     }
   };
 
-  // 5. Delete Product Handler
+  // 5. Archive Product Handler
   const handleDeleteProduct = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}" from inventory?`)) return;
+    if (!confirm(`Are you sure you want to remove "${name}" from inventory?`)) return;
 
-    const { error } = await supabase.from('products').delete().eq('product_id', id);
+    const { error } = await archiveProducts([id]);
 
     if (error) {
-      alert('Failed to delete: ' + error.message);
+      alert('Failed to remove: ' + error.message);
     } else {
       fetchProducts();
     }
@@ -195,7 +177,7 @@ export default function InventoryManager(): React.JSX.Element {
     setEditName(prod.product_name);
     setEditCostPrice(prod.cost_price.toString());
     setEditSellingPrice(prod.selling_price.toString());
-    setEditReorderLevel(prod.reorder_level.toString());
+    setEditReorderLevel((prod.reorder_level ?? 5).toString());
     setIsEditOpen(true);
   };
 
@@ -208,17 +190,17 @@ export default function InventoryManager(): React.JSX.Element {
 
   // Metric Computations
   const totalItems = products.length;
-  const lowStockCount = products.filter((p) => p.stock_quantity <= p.reorder_level && p.stock_quantity > 0).length;
-  const outOfStockCount = products.filter((p) => p.stock_quantity === 0).length;
-  const totalInventoryValue = products.reduce((sum, p) => sum + p.cost_price * p.stock_quantity, 0);
+  const lowStockCount = products.filter((product) => (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0).length;
+  const outOfStockCount = products.filter((product) => product.stock_quantity === 0).length;
+  const totalInventoryValue = products.reduce((sum, product) => sum + product.cost_price * product.stock_quantity, 0);
 
   // Filtering Logic
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.product_name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.product_name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
-    if (filterTab === 'low_stock') return p.stock_quantity <= p.reorder_level && p.stock_quantity > 0;
-    if (filterTab === 'out_of_stock') return p.stock_quantity === 0;
+    if (filterTab === 'low_stock') return (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
+    if (filterTab === 'out_of_stock') return product.stock_quantity === 0;
     return true;
   });
 
@@ -237,9 +219,7 @@ export default function InventoryManager(): React.JSX.Element {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchProducts} disabled={loading} className="text-xs font-semibold cursor-pointer border-input hover:bg-accent">
-            <RefreshCw className={`w-3.5 h-3.5 mr-1 text-emerald-500 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
+          
           <Button size="sm" onClick={() => setIsAddOpen(true)} className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm shadow-emerald-600/20">
             <PlusCircle className="w-3.5 h-3.5 mr-1" /> Add New Item
           </Button>
@@ -373,30 +353,30 @@ export default function InventoryManager(): React.JSX.Element {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {filteredProducts.map((p) => {
-                  const margin = p.selling_price - p.cost_price;
-                  const isLow = p.stock_quantity <= p.reorder_level && p.stock_quantity > 0;
-                  const isOut = p.stock_quantity === 0;
+                {filteredProducts.map((product) => {
+                  const margin = product.selling_price - product.cost_price;
+                  const isLow = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
+                  const isOut = product.stock_quantity === 0;
 
                   return (
-                    <tr key={p.product_id} className="hover:bg-muted/40 transition-colors">
+                    <tr key={product.product_id} className="hover:bg-muted/40 transition-colors">
                       <td className="p-3.5 font-semibold text-foreground">
-                        {p.product_name}
-                        {p.unit_type && <span className="text-[10px] text-muted-foreground ml-1 font-normal">({p.unit_type})</span>}
+                        {product.product_name}
+                        {product.unit_type && <span className="text-[10px] text-muted-foreground ml-1 font-normal">({product.unit_type})</span>}
                       </td>
-                      <td className="p-3.5 text-muted-foreground">₱{p.cost_price.toFixed(2)}</td>
-                      <td className="p-3.5 text-foreground font-bold">₱{p.selling_price.toFixed(2)}</td>
+                      <td className="p-3.5 text-muted-foreground">₱{product.cost_price.toFixed(2)}</td>
+                      <td className="p-3.5 text-foreground font-bold">₱{product.selling_price.toFixed(2)}</td>
                       <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
                         +₱{margin.toFixed(2)}
                       </td>
                       <td className="p-3.5 font-bold text-sm text-foreground">
-                        {p.stock_quantity}
+                        {product.stock_quantity}
                       </td>
                       <td className="p-3.5">
                         {isOut ? (
                           <Badge variant="destructive" className="text-[10px] font-medium bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">Out of Stock</Badge>
                         ) : isLow ? (
-                          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-medium">Low Stock ({p.reorder_level})</Badge>
+                          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-medium">Low Stock ({product.reorder_level ?? 5})</Badge>
                         ) : (
                           <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">In Stock</Badge>
                         )}
@@ -406,7 +386,7 @@ export default function InventoryManager(): React.JSX.Element {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
-                          onClick={() => openRestockModal(p)}
+                          onClick={() => openRestockModal(product)}
                         >
                           <ArrowUpDown className="w-3 h-3 mr-1" /> Restock
                         </Button>
@@ -414,7 +394,7 @@ export default function InventoryManager(): React.JSX.Element {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs font-medium border-input hover:bg-accent text-foreground cursor-pointer"
-                          onClick={() => openEditModal(p)}
+                          onClick={() => openEditModal(product)}
                         >
                           <Edit className="w-3 h-3 mr-1" /> Edit
                         </Button>
@@ -422,7 +402,7 @@ export default function InventoryManager(): React.JSX.Element {
                           size="sm"
                           variant="ghost"
                           className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer rounded-lg"
-                          onClick={() => handleDeleteProduct(p.product_id, p.product_name)}
+                          onClick={() => handleDeleteProduct(product.product_id, product.product_name)}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>

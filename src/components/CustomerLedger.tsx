@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import type { Customer, UtangTransaction } from '@/types';
+import { fetchCustomers as fetchCustomersService, updateCustomerBalance } from '@/services/customerService';
+import { fetchUtangHistory, recordPayment, markUtangAsPaid } from '@/services/paymentService';
 import {
   User,
   Search,
@@ -25,38 +27,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-// --- Type Definitions ---
-interface Customer {
-  customer_id: number;
-  first_name: string;
-  last_name: string;
-  phone_number?: string;
-  credit_limit: number;
-  current_balance: number;
-  is_allowed_utang: boolean;
-}
-
-interface SaleItem {
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-  products: {
-    product_name: string;
-  } | null;
-}
-
-interface UtangTransaction {
-  utang_id: number;
-  sale_id: number;
-  amount: number;
-  status: string;
-  created_at: string;
-  sales: {
-    created_at: string;
-    sale_items: SaleItem[];
-  } | null;
-}
-
 export default function CustomerLedger(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -69,16 +39,16 @@ export default function CustomerLedger(): React.JSX.Element {
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
 
-  // 1. Fetch Customers on Load
+  // 1. Fetch Customers on Load (via service)
   useEffect(() => {
     fetchCustomers();
   }, []);
 
   const fetchCustomers = async () => {
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .order('current_balance', { ascending: false });
+    const { data, error } = await fetchCustomersService({
+      orderBy: 'current_balance',
+      ascending: false,
+    });
 
     if (error) console.error('Error fetching customers:', error);
     else {
@@ -90,31 +60,12 @@ export default function CustomerLedger(): React.JSX.Element {
     }
   };
 
-  // 2. Fetch Customer Utang History (with sales and items details)
+  // 2. Fetch Customer Utang History (via service)
   const handleSelectCustomer = async (customer: Customer) => {
     setSelectedCustomer(customer);
     setLoadingHistory(true);
 
-    const { data, error } = await supabase
-      .from('utang_transactions')
-      .select(`
-        utang_id,
-        sale_id,
-        amount,
-        status,
-        created_at,
-        sales (
-          created_at,
-          sale_items (
-            quantity,
-            unit_price,
-            subtotal,
-            products ( product_name )
-          )
-        )
-      `)
-      .eq('customer_id', customer.customer_id)
-      .order('created_at', { ascending: false });
+    const { data, error } = await fetchUtangHistory(customer.customer_id);
 
     if (error) {
       console.error('Error fetching utang history:', error);
@@ -124,7 +75,7 @@ export default function CustomerLedger(): React.JSX.Element {
     setLoadingHistory(false);
   };
 
-  // 3. Handle Recording Cash Payment
+  // 3. Handle Recording Cash Payment (via services)
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer) return;
@@ -139,32 +90,26 @@ export default function CustomerLedger(): React.JSX.Element {
     }
 
     try {
-      // A. Insert into PAYMENTS table
-      const { error: payErr } = await supabase.from('payments').insert([
-        {
-          customer_id: selectedCustomer.customer_id,
-          amount_paid: amountPaid,
-          notes: paymentNotes || 'Cash Utang Payment',
-        },
-      ]);
+      // A. Insert into PAYMENTS table (via service)
+      const { error: payErr } = await recordPayment({
+        customer_id: selectedCustomer.customer_id,
+        amount_paid: amountPaid,
+        notes: paymentNotes || 'Cash Utang Payment',
+      });
       if (payErr) throw payErr;
 
-      // B. Deduct balance from CUSTOMERS table
+      // B. Deduct balance from CUSTOMERS table (via service)
       const newBalance = selectedCustomer.current_balance - amountPaid;
-      const { error: custErr } = await supabase
-        .from('customers')
-        .update({ current_balance: newBalance })
-        .eq('customer_id', selectedCustomer.customer_id);
+      const { error: custErr } = await updateCustomerBalance(
+        selectedCustomer.customer_id,
+        newBalance
+      );
 
       if (custErr) throw custErr;
 
-      // C. Update status of Unpaid Utang records if fully cleared
+      // C. Update status of Unpaid Utang records if fully cleared (via service)
       if (newBalance === 0) {
-        await supabase
-          .from('utang_transactions')
-          .update({ status: 'Paid' })
-          .eq('customer_id', selectedCustomer.customer_id)
-          .eq('status', 'Unpaid');
+        await markUtangAsPaid(selectedCustomer.customer_id);
       }
 
       alert(`Payment of ₱${amountPaid.toFixed(2)} recorded successfully!`);
@@ -184,8 +129,8 @@ export default function CustomerLedger(): React.JSX.Element {
   };
 
   // Filter customer list search query
-  const filteredCustomers = customers.filter((c) =>
-    `${c.first_name} ${c.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCustomers = customers.filter((customer) =>
+    `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -216,14 +161,14 @@ export default function CustomerLedger(): React.JSX.Element {
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground text-xs">No customers found</div>
           ) : (
-            filteredCustomers.map((cust) => {
-              const isSelected = selectedCustomer?.customer_id === cust.customer_id;
-              const isOverLimit = cust.current_balance > cust.credit_limit;
+            filteredCustomers.map((customer) => {
+              const isSelected = selectedCustomer?.customer_id === customer.customer_id;
+              const isOverLimit = customer.current_balance > customer.credit_limit;
 
               return (
                 <div
-                  key={cust.customer_id}
-                  onClick={() => handleSelectCustomer(cust)}
+                  key={customer.customer_id}
+                  onClick={() => handleSelectCustomer(customer)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center ${isSelected
                     ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
                     : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40'
@@ -231,24 +176,24 @@ export default function CustomerLedger(): React.JSX.Element {
                 >
                   <div>
                     <p className="font-semibold text-foreground text-sm">
-                      {cust.first_name} {cust.last_name}
+                      {customer.first_name} {customer.last_name}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">{cust.phone_number || 'No phone'}</p>
+                    <p className="text-[11px] text-muted-foreground">{customer.phone_number || 'No phone'}</p>
                   </div>
 
                   <div className="text-right">
                     <p
-                      className={`font-bold text-sm ${cust.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      className={`font-bold text-sm ${customer.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                     >
-                      ₱{cust.current_balance.toFixed(2)}
+                      ₱{customer.current_balance.toFixed(2)}
                     </p>
                     <Badge
                       variant={isOverLimit ? 'destructive' : 'secondary'}
                       className={`text-[9px] px-1.5 py-0 font-medium ${!isOverLimit ? 'bg-muted text-muted-foreground' : ''
                         }`}
                     >
-                      Limit: ₱{cust.credit_limit}
+                      Limit: ₱{customer.credit_limit}
                     </Badge>
                   </div>
                 </div>
@@ -323,44 +268,44 @@ export default function CustomerLedger(): React.JSX.Element {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {utangHistory.map((tx) => (
-                    <Card key={tx.utang_id} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
+                  {utangHistory.map((transaction) => (
+                    <Card key={transaction.utang_id} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
                       <CardContent className="p-3.5">
                         <div className="flex justify-between items-start border-b border-border/50 pb-2 mb-2">
                           <div>
                             <span className="text-xs text-muted-foreground font-mono">
-                              Sale ID #{tx.sale_id}
+                              Sale ID #{transaction.sale_id}
                             </span>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(tx.created_at).toLocaleString()}
+                              {new Date(transaction.created_at).toLocaleString()}
                             </p>
                           </div>
                           <div className="text-right">
                             <span className="font-bold text-sm text-rose-500 dark:text-rose-400">
-                              ₱{tx.amount.toFixed(2)}
+                              ₱{transaction.amount.toFixed(2)}
                             </span>
                             <div className="mt-0.5">
                               <Badge
-                                variant={tx.status === 'Paid' ? 'secondary' : 'outline'}
-                                className={`text-[10px] font-medium ${tx.status === 'Unpaid'
+                                variant={transaction.status === 'Paid' ? 'secondary' : 'outline'}
+                                className={`text-[10px] font-medium ${transaction.status === 'Unpaid'
                                   ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
                                   : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
                                   }`}
                               >
-                                {tx.status}
+                                {transaction.status}
                               </Badge>
                             </div>
                           </div>
                         </div>
 
                         {/* Itemized List inside Sale */}
-                        {tx.sales?.sale_items && tx.sales.sale_items.length > 0 && (
+                        {transaction.sales?.sale_items && transaction.sales.sale_items.length > 0 && (
                           <div className="space-y-1 bg-muted/40 p-2.5 rounded-lg text-xs border border-border/40">
                             <p className="text-[10px] text-muted-foreground font-semibold uppercase mb-1 flex items-center gap-1">
                               <Receipt className="w-3 h-3 text-emerald-500" /> Items Purchased
                             </p>
-                            {tx.sales.sale_items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-foreground font-medium">
+                            {transaction.sales.sale_items.map((item, index) => (
+                              <div key={index} className="flex justify-between text-foreground font-medium">
                                 <span>
                                   {item.quantity}x {item.products?.product_name || 'Product'}
                                 </span>

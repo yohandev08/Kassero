@@ -9,6 +9,11 @@
     --font-sans: 'IBM Plex Sans Variable', 'Geist Variable', sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
+    --color-red-300: oklch(80.8% 0.114 19.571);
+    --color-red-400: oklch(70.4% 0.191 22.216);
+    --color-red-500: oklch(63.7% 0.237 25.331);
+    --color-red-600: oklch(57.7% 0.245 27.325);
+    --color-red-700: oklch(50.5% 0.213 27.518);
     --color-amber-300: oklch(87.9% 0.169 91.605);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-amber-500: oklch(76.9% 0.188 70.08);
@@ -904,8 +909,23 @@
   .border-input {
     border-color: var(--input);
   }
+  .border-muted-foreground\/40 {
+    border-color: var(--muted-foreground);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
+    }
+  }
   .border-primary {
     border-color: var(--primary);
+  }
+  .border-red-500 {
+    border-color: var(--color-red-500);
+  }
+  .border-red-500\/30 {
+    border-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-red-500) 30%, transparent);
+    }
   }
   .border-rose-500\/20 {
     border-color: color-mix(in srgb, oklch(64.5% 0.246 16.439) 20%, transparent);
@@ -971,6 +991,12 @@
     background-color: var(--card);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--card) 40%, transparent);
+    }
+  }
+  .bg-card\/95 {
+    background-color: var(--card);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--card) 95%, transparent);
     }
   }
   .bg-cyan-500\/10 {
@@ -1068,6 +1094,12 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--primary) 10%, transparent);
     }
+  }
+  .bg-red-500 {
+    background-color: var(--color-red-500);
+  }
+  .bg-red-600 {
+    background-color: var(--color-red-600);
   }
   .bg-rose-500\/5 {
     background-color: color-mix(in srgb, oklch(64.5% 0.246 16.439) 5%, transparent);
@@ -1223,6 +1255,9 @@
   }
   .py-2\.5 {
     padding-block: calc(var(--spacing) * 2.5);
+  }
+  .py-3 {
+    padding-block: calc(var(--spacing) * 3);
   }
   .py-4 {
     padding-block: calc(var(--spacing) * 4);
@@ -1458,6 +1493,9 @@
   .text-primary-foreground {
     color: var(--primary-foreground);
   }
+  .text-red-600 {
+    color: var(--color-red-600);
+  }
   .text-rose-500 {
     color: var(--color-rose-500);
   }
@@ -1541,6 +1579,10 @@
     --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
+  .ring-2 {
+    --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
   .shadow-emerald-500\/20 {
     --tw-shadow-color: color-mix(in srgb, oklch(69.6% 0.17 162.48) 20%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1571,6 +1613,12 @@
       --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--primary) 20%, transparent) var(--tw-shadow-alpha), transparent);
     }
   }
+  .shadow-red-500\/10 {
+    --tw-shadow-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 10%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-red-500) 10%, transparent) var(--tw-shadow-alpha), transparent);
+    }
+  }
   .ring-foreground\/10 {
     --tw-ring-color: var(--foreground);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1582,6 +1630,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       --tw-ring-color: color-mix(in oklab, var(--primary) 30%, transparent);
     }
+  }
+  .ring-red-500 {
+    --tw-ring-color: var(--color-red-500);
   }
   .outline-hidden {
     --tw-outline-style: none;
@@ -1792,6 +1843,9 @@
         background-color: color-mix(in oklab, var(--color-emerald-500) 10%, transparent);
       }
     }
+    .hover\:bg-emerald-600:hover {
+      background-color: var(--color-emerald-600);
+    }
     .hover\:bg-emerald-700:hover {
       background-color: var(--color-emerald-700);
     }
@@ -1821,6 +1875,20 @@
       .hover\:bg-primary\/90:hover {
         background-color: color-mix(in oklab, var(--primary) 90%, transparent);
       }
+    }
+    .hover\:bg-red-500\/10:hover {
+      background-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 10%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-red-500\/10:hover {
+        background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
+      }
+    }
+    .hover\:bg-red-600:hover {
+      background-color: var(--color-red-600);
+    }
+    .hover\:bg-red-700:hover {
+      background-color: var(--color-red-700);
     }
     .hover\:bg-rose-500\/10:hover {
       background-color: color-mix(in srgb, oklch(64.5% 0.246 16.439) 10%, transparent);
@@ -1856,11 +1924,18 @@
     .hover\:text-sidebar-foreground:hover {
       color: var(--sidebar-foreground);
     }
+    .hover\:text-white:hover {
+      color: var(--color-white);
+    }
     .hover\:underline:hover {
       text-decoration-line: underline;
     }
     .hover\:shadow-md:hover {
       --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 2px 4px -2px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+    .hover\:ring-2:hover {
+      --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
     .hover\:shadow-emerald-600\/20:hover {
@@ -1878,6 +1953,9 @@
       .hover\:shadow-primary\/5:hover {
         --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--primary) 5%, transparent) var(--tw-shadow-alpha), transparent);
       }
+    }
+    .hover\:ring-red-300:hover {
+      --tw-ring-color: var(--color-red-300);
     }
   }
   .focus\:border-primary:focus {
@@ -2140,6 +2218,15 @@
   .dark\:border-input:is(.dark *) {
     border-color: var(--input);
   }
+  .dark\:border-red-400\/30:is(.dark *) {
+    border-color: color-mix(in srgb, oklch(70.4% 0.191 22.216) 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-red-400) 30%, transparent);
+    }
+  }
+  .dark\:border-red-600:is(.dark *) {
+    border-color: var(--color-red-600);
+  }
   .dark\:border-white\/\[\.145\]:is(.dark *) {
     border-color: color-mix(in srgb, #fff 14.499999999999998%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -2160,6 +2247,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--input) 30%, transparent);
     }
+  }
+  .dark\:bg-red-600:is(.dark *) {
+    background-color: var(--color-red-600);
   }
   .dark\:bg-slate-700:is(.dark *) {
     background-color: var(--color-slate-700);
@@ -2187,6 +2277,9 @@
   }
   .dark\:text-emerald-400:is(.dark *) {
     color: var(--color-emerald-400);
+  }
+  .dark\:text-red-400:is(.dark *) {
+    color: var(--color-red-400);
   }
   .dark\:text-rose-300:is(.dark *) {
     color: var(--color-rose-300);
@@ -2720,6 +2813,9 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.53 0.185 162);
+}
+.cl-userButtonOuterIdentifier {
+  color: #ffffff !important;
 }
 @property --tw-translate-x {
   syntax: "*";

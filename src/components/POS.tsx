@@ -1,7 +1,21 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import type { Product, Customer, CartItem } from '@/types';
+import {
+  fetchProducts as fetchProductsService,
+  addProduct as addProductService,
+  addDigitalService,
+  archiveProducts,
+  updateStockQuantity,
+} from '@/services/productService';
+import {
+  fetchCustomers as fetchCustomersService,
+  addCustomer as addCustomerService,
+  updateCustomerBalance,
+} from '@/services/customerService';
+import { createSale, insertSaleItems } from '@/services/salesService';
+import { recordUtangTransaction } from '@/services/paymentService';
 import {
   ShoppingCart,
   User,
@@ -9,7 +23,10 @@ import {
   Minus,
   PackagePlus,
   UserPlus,
-  Smartphone
+  Smartphone,
+  Trash2,
+  X,
+  Check
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
@@ -32,32 +49,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-// --- Type Definitions ---
-interface Product {
-  product_id: number;
-  product_name: string;
-  category?: string;
-  unit_type?: string;
-  cost_price: number;
-  selling_price: number;
-  stock_quantity: number;
-}
-
-interface Customer {
-  customer_id: number;
-  first_name: string;
-  last_name: string;
-  phone_number?: string;
-  credit_limit: number;
-  current_balance: number;
-  is_allowed_utang: boolean;
-}
-
-interface CartItem extends Product {
-  quantity: number;
-  subtotal: number;
-}
 
 type ModalType = 'none' | 'product' | 'customer' | 'digital';
 
@@ -102,28 +93,23 @@ export default function POS(): React.JSX.Element {
   const [customerOpen, setCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  // ------- Components --------
-  // --- Initial Data Fetching ---
+  // Remove Mode
+  const [removeMode, setRemoveMode] = useState(false);
+  const [selectedForRemoval, setSelectedForRemoval] = useState<Set<number>>(new Set());
+
+  // ------- Data Fetching --------
   useEffect(() => {
     fetchInitialData();
   }, []);
 
   const fetchInitialData = async () => {
-    // Fetch Products
-    const { data: productData, error: prodErr } = await supabase
-      .from('products')
-      .select('*')
-      .order('product_name', { ascending: true });
-
+    // Fetch Products (via service)
+    const { data: productData, error: prodErr } = await fetchProductsService();
     if (prodErr) console.error('Error loading products:', prodErr);
     else setProducts(productData || []);
 
-    // Fetch Customers
-    const { data: customerData, error: custErr } = await supabase
-      .from('customers')
-      .select('*')
-      .order('first_name', { ascending: true });
-
+    // Fetch Customers (via service)
+    const { data: customerData, error: custErr } = await fetchCustomersService();
     if (custErr) console.error('Error loading customers:', custErr);
     else setCustomers(customerData || []);
   };
@@ -131,11 +117,11 @@ export default function POS(): React.JSX.Element {
   // --- Derived Calculations ---
   const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
   const changeGiven = amountTendered ? Math.max(0, parseFloat(amountTendered) - totalAmount) : 0;
-  const realProducts = products.filter((p) => !p.product_name.startsWith('[Digital]'));
+  const realProducts = products.filter((product) => !product.product_name.startsWith('[Digital]'));
   const filteredProducts = products.filter(
-    (p) =>
-      !p.product_name.startsWith('[Digital]') &&
-      p.product_name.toLowerCase().includes(searchQuery.toLowerCase())
+    (product) =>
+      !product.product_name.startsWith('[Digital]') &&
+      product.product_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // --- Handlers ---
@@ -143,17 +129,12 @@ export default function POS(): React.JSX.Element {
     e.preventDefault();
     if (!newProductName || !newSellingPrice) return alert('Fill in product name and selling price.');
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert([
-        {
-          product_name: newProductName,
-          cost_price: parseFloat(newCostPrice) || 0,
-          selling_price: parseFloat(newSellingPrice) || 0,
-          stock_quantity: parseInt(newStock, 10) || 0,
-        },
-      ])
-      .select();
+    const { data, error } = await addProductService({
+      product_name: newProductName,
+      cost_price: parseFloat(newCostPrice) || 0,
+      selling_price: parseFloat(newSellingPrice) || 0,
+      stock_quantity: parseInt(newStock, 10) || 0,
+    });
 
     if (error) {
       alert('Failed to add product: ' + error.message);
@@ -179,19 +160,14 @@ export default function POS(): React.JSX.Element {
     }
     setPhoneError('');
 
-    const { data, error } = await supabase
-      .from('customers')
-      .insert([
-        {
-          first_name: newFirstName,
-          last_name: newLastName,
-          phone_number: trimmedPhone,
-          credit_limit: parseFloat(newCreditLimit) || 0,
-          current_balance: 0,
-          is_allowed_utang: true,
-        },
-      ])
-      .select();
+    const { data, error } = await addCustomerService({
+      first_name: newFirstName,
+      last_name: newLastName,
+      phone_number: trimmedPhone,
+      credit_limit: parseFloat(newCreditLimit) || 0,
+      current_balance: 0,
+      is_allowed_utang: true,
+    });
 
     if (error) {
       alert('Failed to register customer: ' + error.message);
@@ -213,18 +189,12 @@ export default function POS(): React.JSX.Element {
     const fee = parseFloat(convenienceFee) || 0;
     const totalServiceCost = txAmount + fee;
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert([
-        {
-          product_name: `[Digital] ${serviceType} - ${serviceAccount || 'No Ref'}`,
-          cost_price: txAmount,
-          selling_price: totalServiceCost,
-          stock_quantity: 999,
-        },
-      ])
-      .select()
-      .single();
+    const { data, error } = await addDigitalService({
+      product_name: `[Digital] ${serviceType} - ${serviceAccount || 'No Ref'}`,
+      cost_price: txAmount,
+      selling_price: totalServiceCost,
+      stock_quantity: 999,
+    });
 
     if (error) {
       alert('Failed to add digital service: ' + error.message);
@@ -235,6 +205,40 @@ export default function POS(): React.JSX.Element {
     setServiceAccount(''); setServiceAmount(''); setRefNumber('');
     setActiveModal('none')
 
+  };
+
+  /* Remove mode helpers */
+  const toggleSelectForRemoval = (productId: number) => {
+    setSelectedForRemoval((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    const allIds = filteredProducts.map((product) => product.product_id);
+    setSelectedForRemoval(new Set(allIds));
+  };
+
+  const exitRemoveMode = () => {
+    setRemoveMode(false);
+    setSelectedForRemoval(new Set());
+  };
+
+  const removeSelectedItems = async () => {
+    if (selectedForRemoval.size === 0) return;
+    try {
+      const ids = Array.from(selectedForRemoval);
+      const { error } = await archiveProducts(ids);
+
+      if (error) throw error;
+      exitRemoveMode();
+      fetchInitialData();
+    } catch (error) {
+      console.error('Failed to remove items', error);
+    }
   };
 
   const addToCart = (product: Product): void => {
@@ -255,6 +259,7 @@ export default function POS(): React.JSX.Element {
     setCart((prevCart) =>
       prevCart
         .map((item) => {
+
           if (item.product_id === productId) {
             const newQty = item.quantity + delta;
             return newQty > 0
@@ -274,24 +279,18 @@ export default function POS(): React.JSX.Element {
     }
 
     try {
-      // 1. Insert into SALES table
-      const { data: sale, error: saleErr } = await supabase
-        .from('sales')
-        .insert([
-          {
-            customer_id: selectedCustomer ? parseInt(selectedCustomer, 10) : null,
-            total_amount: totalAmount,
-            payment_type: paymentType,
-            amount_tendered: paymentType === 'Cash' ? parseFloat(amountTendered) || totalAmount : totalAmount,
-            change_given: paymentType === 'Cash' ? changeGiven : 0,
-          },
-        ])
-        .select()
-        .single();
+      // 1. Insert into SALES table (via service)
+      const { data: sale, error: saleErr } = await createSale({
+        customer_id: selectedCustomer ? parseInt(selectedCustomer, 10) : null,
+        total_amount: totalAmount,
+        payment_type: paymentType,
+        amount_tendered: paymentType === 'Cash' ? parseFloat(amountTendered) || totalAmount : totalAmount,
+        change_given: paymentType === 'Cash' ? changeGiven : 0,
+      });
 
       if (saleErr) throw saleErr;
 
-      // 2. Prepare & Insert SALE_ITEMS
+      // 2. Prepare & Insert SALE_ITEMS (via service)
       const saleItems = cart.map((item) => ({
         sale_id: sale.sale_id,
         product_id: item.product_id,
@@ -300,38 +299,30 @@ export default function POS(): React.JSX.Element {
         subtotal: item.subtotal,
       }));
 
-      const { error: itemsErr } = await supabase.from('sale_items').insert(saleItems);
+      const { error: itemsErr } = await insertSaleItems(saleItems);
       if (itemsErr) throw itemsErr;
 
-      // 3. Deduct Stock Quantity for Each Product
+      // 3. Deduct Stock Quantity for Each Product (via service)
       for (const item of cart) {
-        await supabase
-          .from('products')
-          .update({ stock_quantity: item.stock_quantity - item.quantity })
-          .eq('product_id', item.product_id);
+        await updateStockQuantity(item.product_id, item.stock_quantity - item.quantity);
       }
 
-      // 4. Handle Utang Recording if payment is Utang
+      // 4. Handle Utang Recording if payment is Utang (via service)
       if (paymentType === 'Utang' && selectedCustomer) {
         const customerIdInt = parseInt(selectedCustomer, 10);
 
         // Add Utang record
-        await supabase.from('utang_transactions').insert([
-          {
-            customer_id: customerIdInt,
-            sale_id: sale.sale_id,
-            amount: totalAmount,
-            status: 'Unpaid',
-          },
-        ]);
+        await recordUtangTransaction({
+          customer_id: customerIdInt,
+          sale_id: sale.sale_id,
+          amount: totalAmount,
+          status: 'Unpaid',
+        });
 
         // Get current customer balance & update
-        const currentCust = customers.find((c) => c.customer_id === customerIdInt);
+        const currentCust = customers.find((customer) => customer.customer_id === customerIdInt);
         if (currentCust) {
-          await supabase
-            .from('customers')
-            .update({ current_balance: (currentCust.current_balance || 0) + totalAmount })
-            .eq('customer_id', customerIdInt);
+          await updateCustomerBalance(customerIdInt, (currentCust.current_balance || 0) + totalAmount);
         }
       }
 
@@ -349,8 +340,8 @@ export default function POS(): React.JSX.Element {
   };
 
   //Filter Customer
-  const filteredCustomers = customers.filter((c) => {
-    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+  const filteredCustomers = customers.filter((customer) => {
+    const fullName = `${customer.first_name} ${customer.last_name}`.toLowerCase();
     return fullName.includes(customerSearch.toLowerCase());
   });
 
@@ -378,6 +369,20 @@ export default function POS(): React.JSX.Element {
             </div>
 
             <div className="flex gap-2">
+              <Button size="sm" variant="outline"
+                className={`text-xs font-semibold cursor-pointer transition-all ${
+                  removeMode
+                    ? 'text-white bg-red-500 border-red-500 hover:bg-red-600 dark:bg-red-600 dark:border-red-600'
+                    : 'text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30'
+                }`}
+                onClick={() => {
+                  if (removeMode) exitRemoveMode();
+                  else setRemoveMode(true);
+                }}
+              >
+                {removeMode ? <X className="w-3.5 h-3.5 mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+                {removeMode ? 'Cancel' : 'Remove'}
+              </Button>
               <Button size="sm" variant="outline" className="text-xs font-semibold text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-400/30 cursor-pointer" onClick={() => setActiveModal('digital')}>
                 <Smartphone className="w-3.5 h-3.5 mr-1" /> GCash / E-Load
               </Button>
@@ -406,51 +411,103 @@ export default function POS(): React.JSX.Element {
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-3">
-              {filteredProducts.map((product) => (
-                <Card
-                  key={product.product_id}
-                  className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl ${product.stock_quantity > 0
-                    ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
-                    : 'opacity-60 cursor-not-allowed bg-muted/20'
+              {filteredProducts.map((product) => {
+                const isSelected = selectedForRemoval.has(product.product_id);
+                return (
+                  <Card
+                    key={product.product_id}
+                    onClick={removeMode ? () => toggleSelectForRemoval(product.product_id) : undefined}
+                    className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl relative ${
+                      removeMode
+                        ? isSelected
+                          ? 'ring-2 ring-red-500 border-red-500 shadow-red-500/10 cursor-pointer'
+                          : 'hover:ring-2 hover:ring-red-300 cursor-pointer'
+                        : product.stock_quantity > 0
+                          ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
+                          : 'opacity-60 cursor-not-allowed bg-muted/20'
                     }`}
-                >
-                  <CardContent className="flex flex-col justify-between h-full p-3.5">
-                    <div>
-                      <h4 className="font-semibold text-foreground text-sm line-clamp-1">{product.product_name}</h4>
-                      <Badge
-                        variant={product.stock_quantity > 0 ? "secondary" : "destructive"}
-                        className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${product.stock_quantity > 0
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
-                          : ''
-                          }`}
-                      >
-                        Stock: {product.stock_quantity}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50">
-                      <div className="text-primary font-bold text-base">
-                        ₱{product.selling_price.toFixed(2)}
+                  >
+                    {/* Checkbox overlay in remove mode */}
+                    {removeMode && (
+                      <div className={`absolute top-2 right-2 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-red-500 border-red-500 text-white'
+                          : 'border-muted-foreground/40 bg-background'
+                      }`}>
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
                       </div>
+                    )}
+                    <CardContent className="flex flex-col justify-between h-full p-3.5">
+                      <div>
+                        <h4 className="font-semibold text-foreground text-sm line-clamp-1">{product.product_name}</h4>
+                        <Badge
+                          variant={product.stock_quantity > 0 ? "secondary" : "destructive"}
+                          className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${product.stock_quantity > 0
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                            : ''
+                            }`}
+                        >
+                          Stock: {product.stock_quantity}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50">
+                        <div className="text-primary font-bold text-base">
+                          ₱{product.selling_price.toFixed(2)}
+                        </div>
 
-                      <button
-                        type="button"
-                        disabled={product.stock_quantity <= 0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium 
-                        text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 
-                        disabled:cursor-not-allowed shadow-sm hover:shadow-emerald-600/20 cursor-pointer">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        {!removeMode && (
+                          <button
+                            type="button"
+                            disabled={product.stock_quantity <= 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(product);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium 
+                            text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 
+                            disabled:cursor-not-allowed shadow-sm hover:shadow-emerald-600/20 cursor-pointer">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Floating action bar when items are selected for removal */}
+          {removeMode && (
+            <div className="sticky bottom-0 left-0 right-0 mt-3 flex items-center justify-between gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl px-4 py-3 shadow-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-foreground">
+                  {selectedForRemoval.size} item{selectedForRemoval.size !== 1 ? 's' : ''} selected
+                </span>
+                <button
+                  onClick={selectAllFiltered}
+                  className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                >
+                  Select All
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-xs cursor-pointer" onClick={exitRemoveMode}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={selectedForRemoval.size === 0}
+                  className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50"
+                  onClick={removeSelectedItems}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -522,10 +579,10 @@ export default function POS(): React.JSX.Element {
                 <span className="truncate font-medium">
                   {selectedCustomer && selectedCustomer !== 'walk-in'
                     ? (() => {
-                      const c = customers.find(
+                      const customer = customers.find(
                         (cust) => cust.customer_id.toString() === selectedCustomer
                       );
-                      return c ? `${c.first_name} ${c.last_name}` : 'Walk-in Customer';
+                      return customer ? `${customer.first_name} ${customer.last_name}` : 'Walk-in Customer';
                     })()
                     : 'Walk-in Customer'}
                 </span>
@@ -564,19 +621,19 @@ export default function POS(): React.JSX.Element {
 
                     {/* Filtered Customer List */}
                     {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((c) => (
+                      filteredCustomers.map((customer) => (
                         <div
-                          key={c.customer_id}
+                          key={customer.customer_id}
                           onClick={() => {
-                            setSelectedCustomer(c.customer_id.toString());
+                            setSelectedCustomer(customer.customer_id.toString());
                             setCustomerOpen(false);
                             setCustomerSearch('');
                           }}
-                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-accent flex items-center justify-between transition-colors ${selectedCustomer === c.customer_id.toString() ? 'font-bold text-primary bg-primary/5' : ''
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-accent flex items-center justify-between transition-colors ${selectedCustomer === customer.customer_id.toString() ? 'font-bold text-primary bg-primary/5' : ''
                             }`}
                         >
-                          <span>{c.first_name} {c.last_name}</span>
-                          <span className="text-muted-foreground text-[11px]">(Bal: ₱{c.current_balance})</span>
+                          <span>{customer.first_name} {customer.last_name}</span>
+                          <span className="text-muted-foreground text-[11px]">(Bal: ₱{customer.current_balance})</span>
                         </div>
                       ))
                     ) : (

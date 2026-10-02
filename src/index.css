@@ -177,3 +177,8 @@
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.53 0.185 162);
 }
+
+/* Clerk UserButton identifier styling */
+.cl-userButtonOuterIdentifier {
+  color: #ffffff !important;
+}

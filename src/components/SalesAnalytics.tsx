@@ -1,38 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import type { Sale } from '@/types';
+import { fetchSalesWithItems } from '@/services/salesService';
 import {
   TrendingUp,
   DollarSign,
   CreditCard,
-  RefreshCw,
   ShoppingBag,
   Award
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-interface SaleItemWithProduct {
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-  products: {
-    product_name: string;
-    cost_price: number;
-  } | null;
-}
-
-interface Sale {
-  sale_id: number;
-  total_amount: number;
-  payment_type: 'Cash' | 'Utang' | 'Digital';
-  created_at: string;
-  sale_items: SaleItemWithProduct[];
-}
 
 export default function SalesAnalytics(): React.JSX.Element {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -44,21 +25,7 @@ export default function SalesAnalytics(): React.JSX.Element {
 
   const fetchSalesData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('sales')
-      .select(`
-        sale_id,
-        total_amount,
-        payment_type,
-        created_at,
-        sale_items (
-          quantity,
-          unit_price,
-          subtotal,
-          products ( product_name, cost_price )
-        )
-      `)
-      .order('created_at', { ascending: false });
+    const { data, error } = await fetchSalesWithItems();
 
     if (error) {
       console.error('Error fetching sales analytics:', error);
@@ -69,7 +36,7 @@ export default function SalesAnalytics(): React.JSX.Element {
   };
 
   // --- Financial Computations ---
-  const totalRevenue = sales.reduce((sum, s) => sum + s.total_amount, 0);
+  const totalRevenue = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
 
   // Profit calculation = Subtotal - (Quantity * Cost Price)
   let totalProfit = 0;
@@ -92,9 +59,9 @@ export default function SalesAnalytics(): React.JSX.Element {
   });
 
   // Sales Breakdown by Payment Type
-  const cashSales = sales.filter((s) => s.payment_type === 'Cash').reduce((sum, s) => sum + s.total_amount, 0);
-  const utangSales = sales.filter((s) => s.payment_type === 'Utang').reduce((sum, s) => sum + s.total_amount, 0);
-  const digitalSales = sales.filter((s) => s.payment_type === 'Digital').reduce((sum, s) => sum + s.total_amount, 0);
+  const cashSales = sales.filter((sale) => sale.payment_type === 'Cash').reduce((sum, sale) => sum + sale.total_amount, 0);
+  const utangSales = sales.filter((sale) => sale.payment_type === 'Utang').reduce((sum, sale) => sum + sale.total_amount, 0);
+  const digitalSales = sales.filter((sale) => sale.payment_type === 'Digital').reduce((sum, sale) => sum + sale.total_amount, 0);
 
   // Sorted Top Selling Products
   const topProducts = Object.entries(productSalesMap)
@@ -116,9 +83,7 @@ export default function SalesAnalytics(): React.JSX.Element {
           <p className="text-xs text-muted-foreground mt-0.5">Track earnings, profit margins, and payment breakdown</p>
         </div>
 
-        <Button variant="outline" size="sm" onClick={fetchSalesData} disabled={loading} className="text-xs font-semibold border-input hover:bg-accent cursor-pointer">
-          <RefreshCw className={`w-3.5 h-3.5 mr-1 text-emerald-500 ${loading ? 'animate-spin' : ''}`} /> Refresh Data
-        </Button>
+        
       </div>
 
       {/* METRIC CARDS */}
@@ -211,15 +176,15 @@ export default function SalesAnalytics(): React.JSX.Element {
               <p className="text-xs text-muted-foreground py-6 text-center">No sales recorded yet.</p>
             ) : (
               <div className="space-y-3">
-                {topProducts.map((p, idx) => (
-                  <div key={idx} className="flex justify-between items-center border-b border-border/50 pb-2.5 text-xs">
+                {topProducts.map((product, index) => (
+                  <div key={index} className="flex justify-between items-center border-b border-border/50 pb-2.5 text-xs">
                     <div className="flex items-center gap-2.5">
-                      <span className="font-bold text-muted-foreground w-4 text-center">#{idx + 1}</span>
-                      <span className="font-semibold text-foreground">{p.name}</span>
+                      <span className="font-bold text-muted-foreground w-4 text-center">#{index + 1}</span>
+                      <span className="font-semibold text-foreground">{product.name}</span>
                     </div>
                     <div className="flex gap-4 items-center">
-                      <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">{p.qty} sold</Badge>
-                      <span className="font-bold text-foreground w-24 text-right">₱{p.revenue.toFixed(2)}</span>
+                      <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">{product.qty} sold</Badge>
+                      <span className="font-bold text-foreground w-24 text-right">₱{product.revenue.toFixed(2)}</span>
                     </div>
                   </div>
                 ))}
