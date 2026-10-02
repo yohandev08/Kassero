@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   User,
@@ -222,11 +224,10 @@ export default function CustomerLedger(): React.JSX.Element {
                 <div
                   key={cust.customer_id}
                   onClick={() => handleSelectCustomer(cust)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center ${
-                    isSelected
-                      ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
-                      : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40'
-                  }`}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center ${isSelected
+                    ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
+                    : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40'
+                    }`}
                 >
                   <div>
                     <p className="font-semibold text-foreground text-sm">
@@ -244,9 +245,8 @@ export default function CustomerLedger(): React.JSX.Element {
                     </p>
                     <Badge
                       variant={isOverLimit ? 'destructive' : 'secondary'}
-                      className={`text-[9px] px-1.5 py-0 font-medium ${
-                        !isOverLimit ? 'bg-muted text-muted-foreground' : ''
-                      }`}
+                      className={`text-[9px] px-1.5 py-0 font-medium ${!isOverLimit ? 'bg-muted text-muted-foreground' : ''
+                        }`}
                     >
                       Limit: ₱{cust.credit_limit}
                     </Badge>
@@ -342,11 +342,10 @@ export default function CustomerLedger(): React.JSX.Element {
                             <div className="mt-0.5">
                               <Badge
                                 variant={tx.status === 'Paid' ? 'secondary' : 'outline'}
-                                className={`text-[10px] font-medium ${
-                                  tx.status === 'Unpaid'
-                                    ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                                    : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                                }`}
+                                className={`text-[10px] font-medium ${tx.status === 'Unpaid'
+                                  ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                                  : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                                  }`}
                               >
                                 {tx.status}
                               </Badge>

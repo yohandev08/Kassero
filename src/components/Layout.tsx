@@ -1,9 +1,11 @@
+'use client';
+
 import React, { useState } from 'react';
 import { ShoppingCart, Users, Package, BarChart3, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { UserButton } from '@clerk/react';
+import { UserButton } from '@clerk/nextjs';
 import { useSyncUserProfile } from '@/hooks/useSyncUserProfile';
 
 import POS from './POS';

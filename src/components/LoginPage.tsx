@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState } from 'react';
-import { SignIn, SignUp } from '@clerk/react';
+import { SignIn, SignUp } from '@clerk/nextjs';
 import { Store, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';

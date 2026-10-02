@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -86,6 +88,7 @@ export default function POS(): React.JSX.Element {
   const [newLastName, setNewLastName] = useState<string>('');
   const [newPhone, setNewPhone] = useState<string>('');
   const [newCreditLimit, setNewCreditLimit] = useState<string>('500');
+  const [phoneError, setPhoneError] = useState<string>('');
 
   // Digital Service Form
   const [serviceType, setServiceType] = useState<string>('GCash Cash-In');
@@ -165,13 +168,24 @@ export default function POS(): React.JSX.Element {
     e.preventDefault();
     if (!newFirstName || !newLastName) return alert('First and Last name are required.');
 
+    const trimmedPhone = newPhone.trim();
+    if (!trimmedPhone) {
+      setPhoneError('Please enter phone number');
+      return;
+    }
+    if (trimmedPhone.length !== 11 || !/^\d{11}$/.test(trimmedPhone)) {
+      setPhoneError('Phone number must be exactly 11 digits.');
+      return;
+    }
+    setPhoneError('');
+
     const { data, error } = await supabase
       .from('customers')
       .insert([
         {
           first_name: newFirstName,
           last_name: newLastName,
-          phone_number: newPhone,
+          phone_number: trimmedPhone,
           credit_limit: parseFloat(newCreditLimit) || 0,
           current_balance: 0,
           is_allowed_utang: true,
@@ -186,6 +200,7 @@ export default function POS(): React.JSX.Element {
       setCustomers((prev) => [...prev, newCust]);
       setSelectedCustomer(newCust.customer_id.toString());
       setNewFirstName(''); setNewLastName(''); setNewPhone(''); setNewCreditLimit('500');
+      setPhoneError('');
       setActiveModal('none');
     }
   };
@@ -351,14 +366,14 @@ export default function POS(): React.JSX.Element {
               </div>
               Products Catalog
             </CardTitle>
-            
+
             <div className="relative w-60">
               <input
                 type="text"
                 placeholder="Search Products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs bg-background border border-input rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all" 
+                className="w-full text-xs bg-background border border-input rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
               />
             </div>
 
@@ -394,22 +409,20 @@ export default function POS(): React.JSX.Element {
               {filteredProducts.map((product) => (
                 <Card
                   key={product.product_id}
-                  className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl ${
-                    product.stock_quantity > 0
-                      ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
-                      : 'opacity-60 cursor-not-allowed bg-muted/20'
-                  }`}
+                  className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl ${product.stock_quantity > 0
+                    ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
+                    : 'opacity-60 cursor-not-allowed bg-muted/20'
+                    }`}
                 >
                   <CardContent className="flex flex-col justify-between h-full p-3.5">
                     <div>
                       <h4 className="font-semibold text-foreground text-sm line-clamp-1">{product.product_name}</h4>
-                      <Badge 
-                        variant={product.stock_quantity > 0 ? "secondary" : "destructive"} 
-                        className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${
-                          product.stock_quantity > 0 
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' 
-                            : ''
-                        }`}
+                      <Badge
+                        variant={product.stock_quantity > 0 ? "secondary" : "destructive"}
+                        className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${product.stock_quantity > 0
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                          : ''
+                          }`}
                       >
                         Stock: {product.stock_quantity}
                       </Badge>
@@ -587,11 +600,10 @@ export default function POS(): React.JSX.Element {
                     type="button"
                     size="sm"
                     variant={isSelected ? 'default' : 'outline'}
-                    className={`text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all ${
-                      isSelected 
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20' 
-                        : 'border-input hover:bg-accent text-foreground'
-                    }`}
+                    className={`text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all ${isSelected
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20'
+                      : 'border-input hover:bg-accent text-foreground'
+                      }`}
                     disabled={isUtangDisabled}
                     onClick={() => setPaymentType(type)}
                   >
@@ -671,7 +683,12 @@ export default function POS(): React.JSX.Element {
       </Dialog>
 
       {/* 2. Add Customer Dialog */}
-      <Dialog open={activeModal === 'customer'} onOpenChange={(open) => !open && setActiveModal('none')}>
+      <Dialog open={activeModal === 'customer'} onOpenChange={(open) => {
+        if (!open) {
+          setActiveModal('none');
+          setPhoneError('');
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-foreground">Register New Customer</DialogTitle>
@@ -689,7 +706,37 @@ export default function POS(): React.JSX.Element {
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Phone Number</Label>
-              <Input placeholder="09171234567" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+              <Input
+                placeholder="09171234567"
+                value={newPhone}
+                maxLength={11}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  setNewPhone(val);
+                  if (val.length === 11) {
+                    setPhoneError('');
+                  } else if (phoneError) {
+                    if (val.length === 0) {
+                      setPhoneError('Please enter phone number');
+                    } else {
+                      setPhoneError('Phone number must be exactly 11 digits.');
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (!newPhone.trim()) {
+                    setPhoneError('Please enter phone number');
+                  } else if (newPhone.trim().length !== 11) {
+                    setPhoneError('Phone number must be exactly 11 digits.');
+                  } else {
+                    setPhoneError('');
+                  }
+                }}
+                className={phoneError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {phoneError && (
+                <p className="text-xs text-destructive font-medium">{phoneError}</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Credit Limit (₱)</Label>

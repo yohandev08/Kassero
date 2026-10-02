@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useUser } from '@clerk/react';
+import { useUser } from '@clerk/nextjs';
 import { supabase } from '@/lib/supabase';
 
 export function useSyncUserProfile() {
