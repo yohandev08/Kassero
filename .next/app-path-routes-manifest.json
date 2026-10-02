@@ -1,0 +1,8 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/page": "/",
+  "/(dashboard)/inventory/page": "/inventory",
+  "/(dashboard)/pos/page": "/pos",
+  "/(dashboard)/analytics/page": "/analytics",
+  "/(dashboard)/ledger/page": "/ledger"
+}
