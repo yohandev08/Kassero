@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ThemeProvider } from '@/context/ThemeContext';
-import '@/index.css';
+import '../index.css';
 
 export const metadata: Metadata = {
   title: 'Kassero — Sari-Sari Store Management',
