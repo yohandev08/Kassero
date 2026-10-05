@@ -36,3 +36,8 @@ export async function updateCustomerBalance(customerId: number, newBalance: numb
     .update({ current_balance: newBalance })
     .eq('customer_id', customerId);
 }
+
+/** Delete customers by IDs */
+export async function deleteCustomers(customerIds: number[]) {
+  return supabase.from('customers').delete().in('customer_id', customerIds);
+}

@@ -10,7 +10,10 @@ import {
   History,
   DollarSign,
   CheckCircle,
-  Receipt
+  Receipt,
+  Trash2,
+  X,
+  Check
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
@@ -38,6 +41,10 @@ export default function CustomerLedger(): React.JSX.Element {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
+
+  // Remove feature state
+  const [removeMode, setRemoveMode] = useState<boolean>(false);
+  const [selectedForRemoval, setSelectedForRemoval] = useState<Set<number>>(new Set());
 
   // 1. Fetch Customers on Load (via service)
   useEffect(() => {
@@ -133,18 +140,78 @@ export default function CustomerLedger(): React.JSX.Element {
     `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const toggleSelectForRemoval = (id: number) => {
+    setSelectedForRemoval(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    if (selectedForRemoval.size === filteredCustomers.length && filteredCustomers.length > 0) {
+      setSelectedForRemoval(new Set());
+    } else {
+      setSelectedForRemoval(new Set(filteredCustomers.map(c => c.customer_id)));
+    }
+  };
+
+  const exitRemoveMode = () => {
+    setRemoveMode(false);
+    setSelectedForRemoval(new Set());
+  };
+
+  const removeSelectedCustomers = async () => {
+    if (selectedForRemoval.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)?`)) return;
+
+    try {
+      const { deleteCustomers } = await import('@/services/customerService');
+      const { error } = await deleteCustomers(Array.from(selectedForRemoval));
+      if (error) throw error;
+      
+      // Update local state
+      setCustomers(customers.filter(c => !selectedForRemoval.has(c.customer_id)));
+      if (selectedCustomer && selectedForRemoval.has(selectedCustomer.customer_id)) {
+        setSelectedCustomer(null);
+        setUtangHistory([]);
+      }
+      exitRemoveMode();
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      alert('Failed to delete customers: ' + err.message);
+    }
+  };
+
   return (
-    <div className="flex h-full p-0.5 bg-background gap-4 overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-full p-0.5 bg-background gap-4 overflow-y-auto lg:overflow-hidden">
       {/* LEFT: Customer List & Search */}
-      <Card className="w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+      <Card className="w-full lg:w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-[50vh] lg:h-auto">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-          <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <User className="w-5 h-5" />
-            </div>
-            Customer Directory
-          </CardTitle>
-          <CardDescription className="text-xs text-muted-foreground">Select a customer to view ledger and record payments</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <User className="w-5 h-5" />
+              </div>
+              Customer Directory
+            </CardTitle>
+            <Button size="sm" variant="outline"
+              className={`text-xs font-semibold cursor-pointer transition-all w-full sm:w-auto ${
+                removeMode
+                  ? 'text-white bg-red-500 border-red-500 hover:bg-red-600 dark:bg-red-600 dark:border-red-600'
+                  : 'text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30'
+              }`}
+              onClick={() => {
+                if (removeMode) exitRemoveMode();
+                else setRemoveMode(true);
+              }}
+            >
+              {removeMode ? <X className="w-3.5 h-3.5 mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+              {removeMode ? 'Cancel' : 'Remove'}
+            </Button>
+          </div>
+          <CardDescription className="text-xs text-muted-foreground mt-2">Select a customer to view ledger and record payments</CardDescription>
 
           <div className="relative mt-3">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
@@ -164,17 +231,34 @@ export default function CustomerLedger(): React.JSX.Element {
             filteredCustomers.map((customer) => {
               const isSelected = selectedCustomer?.customer_id === customer.customer_id;
               const isOverLimit = customer.current_balance > customer.credit_limit;
+              const isSelectedForRemoval = selectedForRemoval.has(customer.customer_id);
 
               return (
                 <div
                   key={customer.customer_id}
-                  onClick={() => handleSelectCustomer(customer)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex justify-between items-center ${isSelected
-                    ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30'
-                    : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40'
+                  onClick={removeMode ? () => toggleSelectForRemoval(customer.customer_id) : () => handleSelectCustomer(customer)}
+                  className={`p-3 rounded-xl border transition-all duration-200 flex justify-between items-center relative ${
+                    removeMode
+                      ? isSelectedForRemoval
+                        ? 'ring-2 ring-red-500 border-red-500 shadow-red-500/10 cursor-pointer bg-red-500/5'
+                        : 'hover:ring-2 hover:ring-red-300 cursor-pointer bg-card'
+                      : isSelected
+                        ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30 cursor-pointer'
+                        : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40 cursor-pointer'
                     }`}
                 >
-                  <div>
+                  {/* Checkbox overlay in remove mode */}
+                  {removeMode && (
+                    <div className={`absolute left-3 z-10 w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-all ${
+                      isSelectedForRemoval
+                        ? 'bg-red-500 border-red-500 text-white'
+                        : 'border-muted-foreground/40 bg-background'
+                    }`}>
+                      {isSelectedForRemoval && <Check className="w-3 h-3" />}
+                    </div>
+                  )}
+                  
+                  <div className={removeMode ? "pl-7" : ""}>
                     <p className="font-semibold text-foreground text-sm">
                       {customer.first_name} {customer.last_name}
                     </p>
@@ -200,15 +284,46 @@ export default function CustomerLedger(): React.JSX.Element {
               );
             })
           )}
+
+          {/* Floating action bar when customers are selected for removal */}
+          {removeMode && (
+            <div className="sticky bottom-0 left-0 right-0 mt-3 flex flex-col gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl p-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">
+                  {selectedForRemoval.size} selected
+                </span>
+                <button
+                  onClick={selectAllFiltered}
+                  className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                >
+                  Select All
+                </button>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Button size="sm" variant="outline" className="text-xs cursor-pointer flex-1" onClick={exitRemoveMode}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={selectedForRemoval.size === 0}
+                  className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50 flex-1"
+                  onClick={removeSelectedCustomers}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* RIGHT: Customer Ledger & Utang Breakdown */}
-      <Card className="w-2/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+      <Card className="w-full lg:w-2/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 min-h-[60vh] lg:min-h-0">
         {selectedCustomer ? (
           <>
             <CardHeader className="border-b border-border/60 pb-4 bg-muted/20">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                   <CardTitle className="text-xl font-bold text-foreground">
                     {selectedCustomer.first_name} {selectedCustomer.last_name}
@@ -221,14 +336,14 @@ export default function CustomerLedger(): React.JSX.Element {
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm shadow-emerald-600/20"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm shadow-emerald-600/20"
                 >
                   <DollarSign className="w-4 h-4 mr-1" /> Pay Utang
                 </Button>
               </div>
 
               {/* Summary Metrics */}
-              <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
                   <p className="text-[11px] text-muted-foreground uppercase font-semibold">Total Debt</p>
                   <p className="text-xl font-bold text-rose-500 dark:text-rose-400">

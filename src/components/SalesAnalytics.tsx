@@ -87,7 +87,7 @@ export default function SalesAnalytics(): React.JSX.Element {
       </div>
 
       {/* METRIC CARDS */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
@@ -138,7 +138,7 @@ export default function SalesAnalytics(): React.JSX.Element {
       </div>
 
       {/* LOWER SECTION: PAYMENT BREAKDOWN & TOP PRODUCTS */}
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Payment Method Breakdown */}
         <Card className="border-border/80 bg-card text-card-foreground shadow-md rounded-xl overflow-hidden">
           <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
@@ -164,7 +164,7 @@ export default function SalesAnalytics(): React.JSX.Element {
         </Card>
 
         {/* Top Selling Products */}
-        <Card className="col-span-2 border-border/80 bg-card text-card-foreground shadow-md rounded-xl overflow-hidden">
+        <Card className="lg:col-span-2 border-border/80 bg-card text-card-foreground shadow-md rounded-xl overflow-hidden">
           <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
             <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
               <Award className="w-5 h-5 text-amber-500" /> Top Selling Items
@@ -199,8 +199,8 @@ export default function SalesAnalytics(): React.JSX.Element {
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
           <CardTitle className="text-base font-bold text-foreground">Recent Sales History</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <table className="w-full text-left text-xs">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-left text-xs whitespace-nowrap min-w-[600px]">
             <thead className="bg-muted/50 text-muted-foreground font-bold uppercase border-b border-border/60">
               <tr>
                 <th className="p-3.5">Sale ID</th>

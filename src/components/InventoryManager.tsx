@@ -205,9 +205,9 @@ export default function InventoryManager(): React.JSX.Element {
   });
 
   return (
-    <div className="flex flex-col h-full p-0.5 bg-background gap-5 overflow-hidden">
+    <div className="flex flex-col h-full p-0.5 bg-background gap-5 overflow-y-auto lg:overflow-hidden">
       {/* HEADER & METRIC SUMMARY CARDS */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -218,15 +218,15 @@ export default function InventoryManager(): React.JSX.Element {
           <p className="text-xs text-muted-foreground mt-0.5">Monitor stock levels, reorder alerts, and supplier deliveries</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex w-full sm:w-auto gap-2">
           
-          <Button size="sm" onClick={() => setIsAddOpen(true)} className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm shadow-emerald-600/20">
+          <Button size="sm" onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm shadow-emerald-600/20">
             <PlusCircle className="w-3.5 h-3.5 mr-1" /> Add New Item
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>

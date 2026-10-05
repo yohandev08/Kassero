@@ -346,11 +346,11 @@ export default function POS(): React.JSX.Element {
   });
 
   return (
-    <div className="flex h-full p-0.5 bg-background gap-4 overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-full p-0.5 bg-background gap-4 overflow-y-auto lg:overflow-hidden">
       {/* LEFT: Product Catalog & Header */}
-      <Card className="w-2/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+      <Card className="w-full lg:w-2/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-[60vh] lg:h-auto">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-          <div className="flex justify-between items-center gap-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
               <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <ShoppingCart className="w-5 h-5" />
@@ -358,7 +358,7 @@ export default function POS(): React.JSX.Element {
               Products Catalog
             </CardTitle>
 
-            <div className="relative w-60">
+            <div className="relative w-full sm:w-60">
               <input
                 type="text"
                 placeholder="Search Products..."
@@ -368,7 +368,7 @@ export default function POS(): React.JSX.Element {
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Button size="sm" variant="outline"
                 className={`text-xs font-semibold cursor-pointer transition-all ${
                   removeMode
@@ -410,7 +410,7 @@ export default function POS(): React.JSX.Element {
               <p className="text-xs text-muted-foreground mt-1">Try searching with a different keyword.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredProducts.map((product) => {
                 const isSelected = selectedForRemoval.has(product.product_id);
                 return (
@@ -514,7 +514,7 @@ export default function POS(): React.JSX.Element {
       </Card>
 
       {/* RIGHT: Cart & Payment Details */}
-      <Card className="w-1/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden">
+      <Card className="w-full lg:w-1/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 h-[60vh] lg:h-auto">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
           <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
             <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">

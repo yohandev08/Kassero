@@ -116,7 +116,7 @@ export default function LoginPage(): React.JSX.Element {
                 required
               />
             </div>
-            <Button type="submit" className="w-full font-semibold" disabled={loading}>
+            <Button type="submit" className="w-full font-semibold cursor-pointer" disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {loading ? 'Signing In...' : 'Sign In'}
             </Button>

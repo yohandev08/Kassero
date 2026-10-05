@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { ShoppingCart, Users, Package, BarChart3, Store } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, Users, Package, BarChart3, Store, Menu, X as CloseIcon } from 'lucide-react';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import Link from 'next/link';
@@ -14,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -22,8 +23,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col justify-between p-4 shadow-2xl border-r border-sidebar-border z-10 select-none">
+      <aside className={cn(
+        "bg-sidebar text-sidebar-foreground flex flex-col justify-between p-4 shadow-2xl border-r border-sidebar-border z-50 select-none",
+        "fixed inset-y-0 left-0 transform transition-transform duration-300 ease-in-out w-64 lg:relative lg:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {/* Close Button Mobile */}
+        <button 
+          onClick={() => setIsSidebarOpen(false)}
+          className="absolute top-4 right-4 lg:hidden text-sidebar-foreground/70 hover:text-sidebar-foreground cursor-pointer"
+        >
+          <CloseIcon className="w-5 h-5" />
+        </button>
         <div className="space-y-6">
           {/* Store Brand Header */}
           <div className="flex items-center gap-3 px-2 py-1">
@@ -40,6 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <nav className="space-y-1.5 flex flex-col">
             <Link
               href="/pos"
+              onClick={() => setIsSidebarOpen(false)}
               className={cn(
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
@@ -53,6 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <Link
               href="/ledger"
+              onClick={() => setIsSidebarOpen(false)}
               className={cn(
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
@@ -66,6 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <Link
               href="/inventory"
+              onClick={() => setIsSidebarOpen(false)}
               className={cn(
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
@@ -79,6 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <Link
               href="/analytics"
+              onClick={() => setIsSidebarOpen(false)}
               className={cn(
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
@@ -121,14 +145,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* MAIN VIEW AREA */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
         {/* TOP NAVIGATION BAR */}
-        <header className="h-14 border-b border-border/40 px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <header className="h-14 border-b border-border/40 px-4 md:px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-1.5 rounded-md hover:bg-muted text-foreground cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:inline-block">
               Current View
             </span>
-            <span className="text-muted-foreground/40">•</span>
+            <span className="text-muted-foreground/40 hidden sm:inline-block">•</span>
             <span className="text-sm font-semibold text-foreground">
               {pathname === '/pos' && 'Point of Sale (POS)'}
               {pathname === '/ledger' && 'Utang & Customer Ledger'}
@@ -138,7 +168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-background p-6">
+        <main className="flex-1 overflow-auto bg-background p-2 sm:p-4 md:p-6 w-full max-w-full">
           {children}
         </main>
       </div>
