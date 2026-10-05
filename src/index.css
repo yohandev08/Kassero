@@ -3,7 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/ibm-plex-sans";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

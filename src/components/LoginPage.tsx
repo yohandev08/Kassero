@@ -1,14 +1,39 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SignIn, SignUp } from '@clerk/nextjs';
-import { Store, Moon, Sun, ShieldCheck } from 'lucide-react';
+import { Store, Moon, Sun, ShieldCheck, Loader2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage(): React.JSX.Element {
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      router.push('/pos');
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground flex flex-col justify-between relative overflow-hidden select-none">
@@ -28,7 +53,7 @@ export default function LoginPage(): React.JSX.Element {
           </div>
         </div>
 
-        {/* Theme toggle & Mode toggle */}
+        {/* Theme toggle */}
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -56,46 +81,46 @@ export default function LoginPage(): React.JSX.Element {
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 z-10">
         <div className="text-center mb-6 max-w-md">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {mode === 'sign-in' ? 'Welcome to Kassero' : 'Create Store Account'}
+            Welcome to Kassero
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1.5">
-            {mode === 'sign-in'
-              ? 'Please sign in to access your register, inventory, and utang ledger.'
-              : 'Sign up to start managing your sari-sari store with ease.'}
+            Please sign in to access your register, inventory, and utang ledger.
           </p>
-
-          {/* Toggle pill */}
-          <div className="inline-flex items-center bg-muted/60 p-1 rounded-xl mt-4 border border-border/40">
-            <button
-              onClick={() => setMode('sign-in')}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                mode === 'sign-in'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setMode('sign-up')}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                mode === 'sign-up'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
         </div>
 
-        {/* Clerk Auth Component */}
-        <div className="w-full flex justify-center">
-          {mode === 'sign-in' ? (
-            <SignIn routing="hash" />
-          ) : (
-            <SignUp routing="hash" />
-          )}
+        <div className="w-full max-w-sm bg-card p-6 rounded-2xl shadow-lg border border-border/50">
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-destructive-foreground bg-destructive/90 rounded-lg">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2 text-left">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="store@example.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2 text-left">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password" 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full font-semibold" disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {loading ? 'Signing In...' : 'Sign In'}
+            </Button>
+          </form>
         </div>
       </main>
 

@@ -1,20 +1,36 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { Store, Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoginPage from '@/components/LoginPage';
+import { supabase } from '@/lib/supabase';
 
 export default function HomePage() {
-  const { isLoaded, isSignedIn } = useUser();
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.push('/pos');
-    }
-  }, [isLoaded, isSignedIn, router]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsSignedIn(!!session);
+      setIsLoaded(true);
+      if (session) {
+        router.push('/pos');
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsSignedIn(!!session);
+      if (session) {
+        router.push('/pos');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   if (!isLoaded || isSignedIn) {
     return (

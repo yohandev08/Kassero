@@ -4,17 +4,21 @@ import React from 'react';
 import { ShoppingCart, Users, Package, BarChart3, Store } from 'lucide-react';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { UserButton } from '@clerk/nextjs';
-import { useSyncUserProfile } from '@/hooks/useSyncUserProfile';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { buttonVariants } from '@/components/ui/button';
+import { usePathname, useRouter } from 'next/navigation';
+import { buttonVariants, Button } from '@/components/ui/button';
 import { cn } from 'cn';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
-  useSyncUserProfile();
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -87,20 +91,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           </nav>
         </div>
-        
+
         {/* Footer Auth & Theme Toggle */}
         <div className="border-t border-sidebar-border  pt-3.5 space-y-3">
           <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-sidebar-accent/50 border border-sidebar-border/40">
-            <UserButton
-              showName
-              appearance={{
-                elements: {
-                  rootBox: 'w-full',
-                  userButtonBox: 'w-full text-white',
-                  userButtonOuterIdentifier: 'text-white font-medium text-xs select-none',
-                },
-              }}
-            />
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="w-full justify-start text-xs text-white cursor-pointer">
+              Sign Out
+            </Button>
           </div>
 
           <div className="flex items-center justify-between px-2">
@@ -108,17 +105,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-emerald-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
               {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
             </div>
-            <button 
+            <button
               onClick={toggleTheme}
               aria-label="Toggle theme mode"
-              className={`relative w-10 h-5.5 rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
-                theme === 'dark' ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-              }`}
+              className={`relative w-10 h-5.5 rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${theme === 'dark' ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full shadow-md transition-transform ${
-                  theme === 'dark' ? 'translate-x-4.5' : 'translate-x-0'
-                }`}
+                className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full shadow-md transition-transform ${theme === 'dark' ? 'translate-x-4.5' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -140,10 +135,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {pathname === '/inventory' && 'Inventory & Stock Management'}
               {pathname === '/analytics' && 'Sales & Profit Analytics'}
             </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <UserButton showName />
           </div>
         </header>
 
