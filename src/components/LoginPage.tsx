@@ -127,7 +127,7 @@ export default function LoginPage(): React.JSX.Element {
       {/* Footer */}
       <footer className="w-full max-w-7xl mx-auto px-6 py-4 flex items-center justify-center gap-2 text-[11px] text-muted-foreground z-10 border-t border-border/20">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-        <span>Protected store authentication powered by Clerk</span>
+        <span>Protected store authentication powered by Supabase</span>
       </footer>
     </div>
   );

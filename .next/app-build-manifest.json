@@ -12,7 +12,7 @@
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-a7332d1ee7624038.js",
       "static/chunks/main-app-6fa58592158e9677.js",
-      "static/css/b35dc387c87120f1.css",
+      "static/css/d0df1c8c7dff4b49.css",
       "static/chunks/app/layout-ada8f14fde460fc6.js"
     ],
     "/page": [
@@ -24,7 +24,7 @@
       "static/chunks/621-c508eccb59e678c8.js",
       "static/chunks/599-959f9eae783012b1.js",
       "static/chunks/410-c314feec1b2ef823.js",
-      "static/chunks/app/page-ab539e02b8ad66bb.js"
+      "static/chunks/app/page-3083f57bde6f6f5c.js"
     ],
     "/(dashboard)/layout": [
       "static/chunks/webpack-a393757f752fd96d.js",
@@ -35,6 +35,15 @@
       "static/chunks/621-c508eccb59e678c8.js",
       "static/chunks/599-959f9eae783012b1.js",
       "static/chunks/app/(dashboard)/layout-083731b78260e0df.js"
+    ],
+    "/(dashboard)/analytics/page": [
+      "static/chunks/webpack-a393757f752fd96d.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-a7332d1ee7624038.js",
+      "static/chunks/main-app-6fa58592158e9677.js",
+      "static/chunks/44530001-9f564ab55328eab5.js",
+      "static/chunks/621-c508eccb59e678c8.js",
+      "static/chunks/app/(dashboard)/analytics/page-1e1800e35fb5e160.js"
     ],
     "/(dashboard)/inventory/page": [
       "static/chunks/webpack-a393757f752fd96d.js",
@@ -49,15 +58,6 @@
       "static/chunks/391-bdb7f055c257676c.js",
       "static/chunks/364-b6ba80802334260c.js",
       "static/chunks/app/(dashboard)/inventory/page-64d5630f84d06b1a.js"
-    ],
-    "/(dashboard)/analytics/page": [
-      "static/chunks/webpack-a393757f752fd96d.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-a7332d1ee7624038.js",
-      "static/chunks/main-app-6fa58592158e9677.js",
-      "static/chunks/44530001-9f564ab55328eab5.js",
-      "static/chunks/621-c508eccb59e678c8.js",
-      "static/chunks/app/(dashboard)/analytics/page-1e1800e35fb5e160.js"
     ],
     "/(dashboard)/ledger/page": [
       "static/chunks/webpack-a393757f752fd96d.js",
