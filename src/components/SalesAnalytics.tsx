@@ -70,12 +70,12 @@ export default function SalesAnalytics(): React.JSX.Element {
     .slice(0, 5);
 
   return (
-    <div className="flex flex-col h-full p-0.5 bg-background gap-5 overflow-y-auto">
+    <div className="flex flex-col lg:h-full p-0.5 bg-background gap-5 lg:overflow-y-auto">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary">
               <TrendingUp className="w-5 h-5" />
             </div>
             Sales & Profit Analytics
@@ -94,19 +94,19 @@ export default function SalesAnalytics(): React.JSX.Element {
               <p className="text-[11px] font-semibold uppercase text-muted-foreground">Total Sales Revenue</p>
               <p className="text-2xl font-bold text-foreground mt-0.5">₱{totalRevenue.toFixed(2)}</p>
             </div>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary dark:text-primary">
               <DollarSign className="w-6 h-6" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/30 bg-emerald-500/5 text-card-foreground shadow-sm rounded-xl">
+        <Card className="border-primary/30 bg-primary/10 text-card-foreground shadow-sm rounded-xl">
           <CardContent className="p-4 flex justify-between items-center">
             <div>
-              <p className="text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400">Net Estimated Profit</p>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">₱{totalProfit.toFixed(2)}</p>
+              <p className="text-[11px] font-semibold uppercase text-primary dark:text-primary">Net Estimated Profit</p>
+              <p className="text-2xl font-bold text-primary dark:text-primary mt-0.5">₱{totalProfit.toFixed(2)}</p>
             </div>
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary dark:text-primary">
               <TrendingUp className="w-6 h-6" />
             </div>
           </CardContent>
@@ -146,9 +146,9 @@ export default function SalesAnalytics(): React.JSX.Element {
             <CardDescription className="text-xs text-muted-foreground">Revenue grouped by payment channel</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 p-4">
-            <div className="flex justify-between items-center p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Cash Transactions</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{cashSales.toFixed(2)}</span>
+            <div className="flex justify-between items-center p-3 bg-primary/10 rounded-xl border border-primary/30">
+              <span className="text-xs font-semibold text-primary dark:text-primary">Cash Transactions</span>
+              <span className="font-bold text-primary dark:text-primary">₱{cashSales.toFixed(2)}</span>
             </div>
 
             <div className="flex justify-between items-center p-3 bg-rose-500/10 rounded-xl border border-rose-500/20">
@@ -183,7 +183,7 @@ export default function SalesAnalytics(): React.JSX.Element {
                       <span className="font-semibold text-foreground">{product.name}</span>
                     </div>
                     <div className="flex gap-4 items-center">
-                      <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">{product.qty} sold</Badge>
+                      <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary dark:text-primary border border-primary/30">{product.qty} sold</Badge>
                       <span className="font-bold text-foreground w-24 text-right">₱{product.revenue.toFixed(2)}</span>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ export default function SalesAnalytics(): React.JSX.Element {
                           ? 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                           : sale.payment_type === 'Digital'
                           ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                          : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'border-primary/30 bg-primary/10 text-primary dark:text-primary'
                       }`}
                     >
                       {sale.payment_type}

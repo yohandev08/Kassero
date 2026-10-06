@@ -36,15 +36,13 @@ export default function LoginPage(): React.JSX.Element {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background text-foreground flex flex-col justify-between relative overflow-hidden select-none">
-      {/* Background ambient lighting */}
-      <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-teal-500/10 blur-[120px] pointer-events-none" />
+    <div className="min-h-[100dvh] w-full bg-background text-foreground flex flex-col justify-between relative overflow-hidden select-none">
+      {/* Background ambient lighting removed for simplicity */}
 
       {/* Top Header */}
       <header className="w-full max-w-7xl mx-auto px-6 py-5 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-500/25 text-white">
+          <div className="bg-primary p-2.5 rounded-xl shadow-lg text-primary-foreground">
             <Store className="w-5 h-5" />
           </div>
           <div>
@@ -64,7 +62,7 @@ export default function LoginPage(): React.JSX.Element {
           >
             {theme === 'dark' ? (
               <>
-                <Moon className="w-4 h-4 text-emerald-400" />
+                <Moon className="w-4 h-4 text-primary" />
                 <span>Dark</span>
               </>
             ) : (
@@ -126,7 +124,7 @@ export default function LoginPage(): React.JSX.Element {
 
       {/* Footer */}
       <footer className="w-full max-w-7xl mx-auto px-6 py-4 flex items-center justify-center gap-2 text-[11px] text-muted-foreground z-10 border-t border-border/20">
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+        <ShieldCheck className="w-3.5 h-3.5 text-primary" />
         <span>Protected store authentication powered by Supabase</span>
       </footer>
     </div>

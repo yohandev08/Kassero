@@ -17,6 +17,7 @@ export async function fetchProducts() {
 /** Insert a new product */
 export async function addProduct(product: {
   product_name: string;
+  category: string;
   cost_price: number;
   selling_price: number;
   stock_quantity: number;

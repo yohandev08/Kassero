@@ -38,6 +38,15 @@ export async function recordPayment(payment: {
   return supabase.from('payments').insert([payment]);
 }
 
+/** Fetch payment history for a customer */
+export async function fetchPayments(customerId: number) {
+  return supabase
+    .from('payments')
+    .select('payment_id, amount_paid, notes, created_at')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false });
+}
+
 /** Mark all unpaid utang transactions as paid for a customer */
 export async function markUtangAsPaid(customerId: number) {
   return supabase

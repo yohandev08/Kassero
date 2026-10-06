@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex min-h-[100dvh] lg:h-[100dvh] bg-background text-foreground lg:overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -47,8 +47,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="space-y-6">
           {/* Store Brand Header */}
           <div className="flex items-center gap-3 px-2 py-1">
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-500/20 text-slate-950 font-bold">
-              <Store className="w-5 h-5 text-white" />
+            <div className="bg-primary p-2.5 rounded-xl shadow-lg text-primary-foreground font-bold">
+              <Store className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
               <h1 className="font-bold text-sm tracking-wide text-sidebar-foreground">Kassero</h1>
@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
                 pathname === '/pos'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-600 hover:text-white'
+                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                   : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
               )}
             >
@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
                 pathname === '/ledger'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-600 hover:text-white'
+                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                   : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
               )}
             >
@@ -93,7 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
                 pathname === '/inventory'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-600 hover:text-white'
+                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                   : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
               )}
             >
@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 buttonVariants({ variant: 'ghost' }),
                 'w-full justify-start text-xs font-semibold gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 cursor-pointer',
                 pathname === '/analytics'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-600 hover:text-white'
+                  ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                   : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
               )}
             >
@@ -119,20 +119,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Footer Auth & Theme Toggle */}
         <div className="border-t border-sidebar-border  pt-3.5 space-y-3">
           <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-sidebar-accent/50 border border-sidebar-border/40">
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="w-full justify-start text-xs text-white cursor-pointer">
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="w-full justify-start text-xs text-foreground cursor-pointer">
               Sign Out
             </Button>
           </div>
 
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2 text-xs font-medium text-sidebar-foreground/70">
-              {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-emerald-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
+              {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-primary" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
               {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
             </div>
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme mode"
-              className={`relative w-10 h-5.5 rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${theme === 'dark' ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+              className={`relative w-10 h-5.5 rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 ${theme === 'dark' ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
             >
               <span
@@ -145,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* MAIN VIEW AREA */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
+      <div className="flex-1 flex flex-col lg:h-full lg:overflow-hidden w-full">
         {/* TOP NAVIGATION BAR */}
         <header className="h-14 border-b border-border/40 px-4 md:px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
@@ -168,7 +168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-background p-2 sm:p-4 md:p-6 w-full max-w-full">
+        <main className="flex-1 lg:overflow-auto bg-background p-2 sm:p-4 md:p-6 w-full max-w-full">
           {children}
         </main>
       </div>

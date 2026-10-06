@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Customer, UtangTransaction } from '@/types';
 import { fetchCustomers as fetchCustomersService, updateCustomerBalance } from '@/services/customerService';
-import { fetchUtangHistory, recordPayment, markUtangAsPaid } from '@/services/paymentService';
+import { fetchUtangHistory, recordPayment, markUtangAsPaid, fetchPayments } from '@/services/paymentService';
 import {
   User,
   Search,
@@ -35,7 +35,9 @@ export default function CustomerLedger(): React.JSX.Element {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [utangHistory, setUtangHistory] = useState<UtangTransaction[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [ledgerTab, setLedgerTab] = useState<'unpaid' | 'paid'>('unpaid');
 
   // Modal State for Payments
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
@@ -72,12 +74,21 @@ export default function CustomerLedger(): React.JSX.Element {
     setSelectedCustomer(customer);
     setLoadingHistory(true);
 
-    const { data, error } = await fetchUtangHistory(customer.customer_id);
+    const [utangRes, paymentsRes] = await Promise.all([
+      fetchUtangHistory(customer.customer_id),
+      fetchPayments(customer.customer_id)
+    ]);
 
-    if (error) {
-      console.error('Error fetching utang history:', error);
+    if (utangRes.error) {
+      console.error('Error fetching utang history:', utangRes.error);
     } else {
-      setUtangHistory((data as unknown as UtangTransaction[]) || []);
+      setUtangHistory((utangRes.data as unknown as UtangTransaction[]) || []);
+    }
+
+    if (paymentsRes.error) {
+      console.error('Error fetching payment history:', paymentsRes.error);
+    } else {
+      setPaymentHistory(paymentsRes.data || []);
     }
     setLoadingHistory(false);
   };
@@ -185,19 +196,19 @@ export default function CustomerLedger(): React.JSX.Element {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full p-0.5 bg-background gap-4 overflow-y-auto lg:overflow-hidden">
+    <div className="flex flex-col lg:flex-row lg:h-full p-0.5 bg-background gap-4 lg:overflow-hidden">
       {/* LEFT: Customer List & Search */}
-      <Card className="w-full lg:w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-[50vh] lg:h-auto">
+      <Card className="w-full lg:w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-auto min-h-fit">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex flex-row justify-between items-center gap-3">
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary">
                 <User className="w-5 h-5" />
               </div>
-              Customer Directory
+              <span className="truncate">Customer Directory</span>
             </CardTitle>
             <Button size="sm" variant="outline"
-              className={`text-xs font-semibold cursor-pointer transition-all w-full sm:w-auto ${
+              className={`text-xs font-semibold cursor-pointer transition-all w-fit shrink-0 ${
                 removeMode
                   ? 'text-white bg-red-500 border-red-500 hover:bg-red-600 dark:bg-red-600 dark:border-red-600'
                   : 'text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30'
@@ -219,12 +230,12 @@ export default function CustomerLedger(): React.JSX.Element {
               placeholder="Search customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs bg-background border-input"
+              className="pl-9 text-[16px] md:text-xs bg-background border-input min-h-[44px] md:min-h-0"
             />
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto space-y-2 p-3">
+        <CardContent className="flex-1 overflow-y-auto space-y-2 p-3 min-h-[250px]">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground text-xs">No customers found</div>
           ) : (
@@ -244,7 +255,7 @@ export default function CustomerLedger(): React.JSX.Element {
                         : 'hover:ring-2 hover:ring-red-300 cursor-pointer bg-card'
                       : isSelected
                         ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30 cursor-pointer'
-                        : 'border-border/70 bg-card hover:bg-muted/40 hover:border-emerald-500/40 cursor-pointer'
+                        : 'border-border/70 bg-card hover:bg-muted/40 hover:border-primary/30 cursor-pointer'
                     }`}
                 >
                   {/* Checkbox overlay in remove mode */}
@@ -267,7 +278,7 @@ export default function CustomerLedger(): React.JSX.Element {
 
                   <div className="text-right">
                     <p
-                      className={`font-bold text-sm ${customer.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      className={`font-bold text-sm ${customer.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-primary dark:text-primary'
                         }`}
                     >
                       ₱{customer.current_balance.toFixed(2)}
@@ -336,7 +347,7 @@ export default function CustomerLedger(): React.JSX.Element {
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm shadow-emerald-600/20"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary text-white font-semibold cursor-pointer shadow-sm shadow-primary/20"
                 >
                   <DollarSign className="w-4 h-4 mr-1" /> Pay Utang
                 </Button>
@@ -360,7 +371,7 @@ export default function CustomerLedger(): React.JSX.Element {
 
                 <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
                   <p className="text-[11px] text-muted-foreground uppercase font-semibold">Available Credit</p>
-                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <p className="text-xl font-bold text-primary dark:text-primary">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
                   </p>
                 </div>
@@ -368,72 +379,144 @@ export default function CustomerLedger(): React.JSX.Element {
             </CardHeader>
 
             {/* Transaction History Section */}
-            <CardContent className="flex-1 overflow-y-auto p-4">
-              <h3 className="font-semibold text-foreground text-sm mb-3 flex items-center gap-1.5">
-                <History className="w-4 h-4 text-emerald-500" /> Utang Transaction History
-              </h3>
-
-              {loadingHistory ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">Loading ledger...</div>
-              ) : utangHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <CheckCircle className="w-10 h-10 mb-2 text-emerald-500" />
-                  <p className="text-sm font-semibold text-foreground">No Utang records found</p>
-                  <p className="text-xs text-muted-foreground">This customer has a clean record.</p>
+            <CardContent className="flex-1 overflow-y-auto p-4 flex flex-col">
+              <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
+                <h3 className="font-semibold text-foreground text-sm flex items-center gap-1.5">
+                  <History className="w-4 h-4 text-primary" /> Transaction History
+                </h3>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant={ledgerTab === 'unpaid' ? 'default' : 'outline'}
+                    className={`h-7 text-[10px] px-2.5 rounded-md cursor-pointer ${ledgerTab === 'unpaid' ? 'bg-primary text-white shadow-sm' : 'bg-background hover:bg-muted'}`}
+                    onClick={() => setLedgerTab('unpaid')}
+                  >
+                    Unpaid
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={ledgerTab === 'paid' ? 'default' : 'outline'}
+                    className={`h-7 text-[10px] px-2.5 rounded-md cursor-pointer ${ledgerTab === 'paid' ? 'bg-primary text-white shadow-sm' : 'bg-background hover:bg-muted'}`}
+                    onClick={() => setLedgerTab('paid')}
+                  >
+                    Paid & Payments
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {utangHistory.map((transaction) => (
-                    <Card key={transaction.utang_id} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
-                      <CardContent className="p-3.5">
-                        <div className="flex justify-between items-start border-b border-border/50 pb-2 mb-2">
-                          <div>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              Sale ID #{transaction.sale_id}
-                            </span>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(transaction.created_at).toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-bold text-sm text-rose-500 dark:text-rose-400">
-                              ₱{transaction.amount.toFixed(2)}
-                            </span>
-                            <div className="mt-0.5">
-                              <Badge
-                                variant={transaction.status === 'Paid' ? 'secondary' : 'outline'}
-                                className={`text-[10px] font-medium ${transaction.status === 'Unpaid'
-                                  ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                                  : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                                  }`}
-                              >
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
+              </div>
 
-                        {/* Itemized List inside Sale */}
-                        {transaction.sales?.sale_items && transaction.sales.sale_items.length > 0 && (
-                          <div className="space-y-1 bg-muted/40 p-2.5 rounded-lg text-xs border border-border/40">
-                            <p className="text-[10px] text-muted-foreground font-semibold uppercase mb-1 flex items-center gap-1">
-                              <Receipt className="w-3 h-3 text-emerald-500" /> Items Purchased
-                            </p>
-                            {transaction.sales.sale_items.map((item, index) => (
-                              <div key={index} className="flex justify-between text-foreground font-medium">
-                                <span>
-                                  {item.quantity}x {item.products?.product_name || 'Product'}
-                                </span>
-                                <span>₱{item.subtotal.toFixed(2)}</span>
+              {(() => {
+                let filteredTimeline: any[] = [];
+                if (ledgerTab === 'unpaid') {
+                  filteredTimeline = utangHistory
+                    .filter(u => u.status === 'Unpaid')
+                    .map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() }));
+                } else {
+                  filteredTimeline = [
+                    ...utangHistory.filter(u => u.status === 'Paid').map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() })),
+                    ...paymentHistory.map(p => ({ ...p, _type: 'payment', _date: new Date(p.created_at).getTime() }))
+                  ];
+                }
+                filteredTimeline.sort((a, b) => b._date - a._date);
+
+                if (loadingHistory) {
+                  return <div className="text-center py-10 text-muted-foreground text-xs">Loading ledger...</div>;
+                }
+
+                if (filteredTimeline.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground flex-1">
+                      <CheckCircle className="w-10 h-10 mb-2 text-primary" />
+                      <p className="text-sm font-semibold text-foreground">No records found</p>
+                      <p className="text-xs text-muted-foreground">This section is empty.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {filteredTimeline.map((event: any) => {
+                      if (event._type === 'utang') {
+                        return (
+                          <Card key={`u-${event.utang_id}`} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
+                            <CardContent className="p-3.5">
+                              <div className="flex justify-between items-start border-b border-border/50 pb-2 mb-2">
+                                <div>
+                                  <span className="text-xs text-muted-foreground font-mono">
+                                    Sale ID #{event.sale_id}
+                                  </span>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(event.created_at).toLocaleString()}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-sm text-rose-500 dark:text-rose-400">
+                                    ₱{event.amount.toFixed(2)}
+                                  </span>
+                                  <div className="mt-0.5">
+                                    <Badge
+                                      variant={event.status === 'Paid' ? 'secondary' : 'outline'}
+                                      className={`text-[10px] font-medium ${event.status === 'Unpaid'
+                                        ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                                        : 'border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/10'
+                                        }`}
+                                    >
+                                      {event.status}
+                                    </Badge>
+                                  </div>
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+
+                              {/* Itemized List inside Sale */}
+                              {event.sales?.sale_items && event.sales.sale_items.length > 0 && (
+                                <div className="space-y-1 bg-muted/40 p-2.5 rounded-lg text-xs border border-border/40">
+                                  <p className="text-[10px] text-muted-foreground font-semibold uppercase mb-1 flex items-center gap-1">
+                                    <Receipt className="w-3 h-3 text-primary" /> Items Purchased
+                                  </p>
+                                  {event.sales.sale_items.map((item: any, index: number) => (
+                                    <div key={index} className="flex justify-between text-foreground font-medium">
+                                      <span>
+                                        {item.quantity}x {item.products?.product_name || 'Product'}
+                                      </span>
+                                      <span>₱{item.subtotal.toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      } else {
+                        return (
+                          <Card key={`p-${event.payment_id}`} className="border border-green-500/30 bg-green-500/5 shadow-xs rounded-xl overflow-hidden">
+                            <CardContent className="p-3.5">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="text-xs text-green-600 dark:text-green-400 font-bold flex items-center gap-1">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Payment Recorded
+                                  </span>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {new Date(event.created_at).toLocaleString()}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-sm text-green-600 dark:text-green-400">
+                                    +₱{event.amount_paid.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              {event.notes && (
+                                <p className="text-xs text-muted-foreground mt-2 bg-background/50 p-2 rounded-lg border border-border/40">
+                                  Note: {event.notes}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                    })}
+                  </div>
+                );
+              })()}
             </CardContent>
           </>
         ) : (
@@ -478,7 +561,7 @@ export default function CustomerLedger(): React.JSX.Element {
                   placeholder="0.00"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="text-sm font-semibold bg-background"
+                  className="text-[16px] md:text-sm font-semibold bg-background min-h-[44px] md:min-h-0"
                 />
               </div>
 
@@ -488,12 +571,12 @@ export default function CustomerLedger(): React.JSX.Element {
                   placeholder="e.g. Partial cash payment"
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
-                  className="text-xs bg-background"
+                  className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0"
                 />
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">
+                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">
                   Submit Payment
                 </Button>
               </DialogFooter>

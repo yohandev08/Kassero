@@ -50,7 +50,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type ModalType = 'none' | 'product' | 'customer' | 'digital';
+type ModalType = 'none' | 'digital';
 
 export default function POS(): React.JSX.Element {
   // Empty initial states
@@ -67,19 +67,9 @@ export default function POS(): React.JSX.Element {
   // Active Modal Control
   const [activeModal, setActiveModal] = useState<ModalType>('none');
 
-  // --- Form States for New Entities ---
-  // Product Form
-  const [newProductName, setNewProductName] = useState<string>('');
-  const [newCostPrice, setNewCostPrice] = useState<string>('');
-  const [newSellingPrice, setNewSellingPrice] = useState<string>('');
-  const [newStock, setNewStock] = useState<string>('');
 
-  // Customer Form
-  const [newFirstName, setNewFirstName] = useState<string>('');
-  const [newLastName, setNewLastName] = useState<string>('');
-  const [newPhone, setNewPhone] = useState<string>('');
-  const [newCreditLimit, setNewCreditLimit] = useState<string>('500');
-  const [phoneError, setPhoneError] = useState<string>('');
+
+
 
   // Digital Service Form
   const [serviceType, setServiceType] = useState<string>('GCash Cash-In');
@@ -93,9 +83,7 @@ export default function POS(): React.JSX.Element {
   const [customerOpen, setCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  // Remove Mode
-  const [removeMode, setRemoveMode] = useState(false);
-  const [selectedForRemoval, setSelectedForRemoval] = useState<Set<number>>(new Set());
+
 
   // ------- Data Fetching --------
   useEffect(() => {
@@ -125,61 +113,9 @@ export default function POS(): React.JSX.Element {
   );
 
   // --- Handlers ---
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProductName || !newSellingPrice) return alert('Fill in product name and selling price.');
 
-    const { data, error } = await addProductService({
-      product_name: newProductName,
-      cost_price: parseFloat(newCostPrice) || 0,
-      selling_price: parseFloat(newSellingPrice) || 0,
-      stock_quantity: parseInt(newStock, 10) || 0,
-    });
 
-    if (error) {
-      alert('Failed to add product: ' + error.message);
-    } else if (data) {
-      setProducts((prev) => [...prev, data[0]]);
-      setNewProductName(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStock('');
-      setActiveModal('none');
-    }
-  };
 
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFirstName || !newLastName) return alert('First and Last name are required.');
-
-    const trimmedPhone = newPhone.trim();
-    if (!trimmedPhone) {
-      setPhoneError('Please enter phone number');
-      return;
-    }
-    if (trimmedPhone.length !== 11 || !/^\d{11}$/.test(trimmedPhone)) {
-      setPhoneError('Phone number must be exactly 11 digits.');
-      return;
-    }
-    setPhoneError('');
-
-    const { data, error } = await addCustomerService({
-      first_name: newFirstName,
-      last_name: newLastName,
-      phone_number: trimmedPhone,
-      credit_limit: parseFloat(newCreditLimit) || 0,
-      current_balance: 0,
-      is_allowed_utang: true,
-    });
-
-    if (error) {
-      alert('Failed to register customer: ' + error.message);
-    } else if (data && data[0]) {
-      const newCust = data[0];
-      setCustomers((prev) => [...prev, newCust]);
-      setSelectedCustomer(newCust.customer_id.toString());
-      setNewFirstName(''); setNewLastName(''); setNewPhone(''); setNewCreditLimit('500');
-      setPhoneError('');
-      setActiveModal('none');
-    }
-  };
 
   const handleAddDigitalService = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -207,39 +143,7 @@ export default function POS(): React.JSX.Element {
 
   };
 
-  /* Remove mode helpers */
-  const toggleSelectForRemoval = (productId: number) => {
-    setSelectedForRemoval((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
-      return next;
-    });
-  };
 
-  const selectAllFiltered = () => {
-    const allIds = filteredProducts.map((product) => product.product_id);
-    setSelectedForRemoval(new Set(allIds));
-  };
-
-  const exitRemoveMode = () => {
-    setRemoveMode(false);
-    setSelectedForRemoval(new Set());
-  };
-
-  const removeSelectedItems = async () => {
-    if (selectedForRemoval.size === 0) return;
-    try {
-      const ids = Array.from(selectedForRemoval);
-      const { error } = await archiveProducts(ids);
-
-      if (error) throw error;
-      exitRemoveMode();
-      fetchInitialData();
-    } catch (error) {
-      console.error('Failed to remove items', error);
-    }
-  };
 
   const addToCart = (product: Product): void => {
     setCart((prevCart) => {
@@ -346,13 +250,13 @@ export default function POS(): React.JSX.Element {
   });
 
   return (
-    <div className="flex flex-col lg:flex-row h-full p-0.5 bg-background gap-4 overflow-y-auto lg:overflow-hidden">
+    <div className="flex flex-col lg:flex-row lg:h-full p-0.5 bg-background gap-4 lg:overflow-hidden">
       {/* LEFT: Product Catalog & Header */}
-      <Card className="w-full lg:w-2/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-[60vh] lg:h-auto">
+      <Card className="w-full lg:w-2/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-auto min-h-fit lg:h-auto">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary">
                 <ShoppingCart className="w-5 h-5" />
               </div>
               Products Catalog
@@ -364,34 +268,17 @@ export default function POS(): React.JSX.Element {
                 placeholder="Search Products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs bg-background border border-input rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                className="w-full text-[16px] md:text-xs bg-background border border-input rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
               />
             </div>
 
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <Button size="sm" variant="outline"
-                className={`text-xs font-semibold cursor-pointer transition-all ${
-                  removeMode
-                    ? 'text-white bg-red-500 border-red-500 hover:bg-red-600 dark:bg-red-600 dark:border-red-600'
-                    : 'text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30'
-                }`}
-                onClick={() => {
-                  if (removeMode) exitRemoveMode();
-                  else setRemoveMode(true);
-                }}
-              >
-                {removeMode ? <X className="w-3.5 h-3.5 mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
-                {removeMode ? 'Cancel' : 'Remove'}
-              </Button>
+
               <Button size="sm" variant="outline" className="text-xs font-semibold text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-400/30 cursor-pointer" onClick={() => setActiveModal('digital')}>
                 <Smartphone className="w-3.5 h-3.5 mr-1" /> GCash / E-Load
               </Button>
-              <Button size="sm" variant="outline" className="text-xs font-semibold text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-400/30 cursor-pointer" onClick={() => setActiveModal('customer')}>
-                <UserPlus className="w-3.5 h-3.5 mr-1" /> Customer
-              </Button>
-              <Button size="sm" className="text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20 cursor-pointer" onClick={() => setActiveModal('product')}>
-                <PackagePlus className="w-3.5 h-3.5 mr-1" /> Add Product
-              </Button>
+
+
             </div>
           </div>
         </CardHeader>
@@ -412,38 +299,22 @@ export default function POS(): React.JSX.Element {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredProducts.map((product) => {
-                const isSelected = selectedForRemoval.has(product.product_id);
                 return (
                   <Card
                     key={product.product_id}
-                    onClick={removeMode ? () => toggleSelectForRemoval(product.product_id) : undefined}
                     className={`transition duration-200 shadow-sm flex flex-col justify-between bg-card text-card-foreground border-border/80 rounded-xl relative ${
-                      removeMode
-                        ? isSelected
-                          ? 'ring-2 ring-red-500 border-red-500 shadow-red-500/10 cursor-pointer'
-                          : 'hover:ring-2 hover:ring-red-300 cursor-pointer'
-                        : product.stock_quantity > 0
-                          ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
-                          : 'opacity-60 cursor-not-allowed bg-muted/20'
+                      product.stock_quantity > 0
+                        ? 'hover:border-primary hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5'
+                        : 'opacity-60 cursor-not-allowed bg-muted/20'
                     }`}
                   >
-                    {/* Checkbox overlay in remove mode */}
-                    {removeMode && (
-                      <div className={`absolute top-2 right-2 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                        isSelected
-                          ? 'bg-red-500 border-red-500 text-white'
-                          : 'border-muted-foreground/40 bg-background'
-                      }`}>
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                    )}
                     <CardContent className="flex flex-col justify-between h-full p-3.5">
                       <div>
                         <h4 className="font-semibold text-foreground text-sm line-clamp-1">{product.product_name}</h4>
                         <Badge
                           variant={product.stock_quantity > 0 ? "secondary" : "destructive"}
                           className={`mt-1.5 text-[10px] font-medium px-2 py-0.5 ${product.stock_quantity > 0
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                            ? 'bg-primary/10 text-primary dark:text-primary border border-primary/30'
                             : ''
                             }`}
                         >
@@ -455,7 +326,6 @@ export default function POS(): React.JSX.Element {
                           ₱{product.selling_price.toFixed(2)}
                         </div>
 
-                        {!removeMode && (
                           <button
                             type="button"
                             disabled={product.stock_quantity <= 0}
@@ -463,15 +333,14 @@ export default function POS(): React.JSX.Element {
                               e.stopPropagation();
                               addToCart(product);
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium 
+                            className="bg-primary hover:bg-primary active:bg-primary text-white font-medium 
                             text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 
-                            disabled:cursor-not-allowed shadow-sm hover:shadow-emerald-600/20 cursor-pointer">
+                            disabled:cursor-not-allowed shadow-sm hover:shadow-primary/20 cursor-pointer">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                             </svg>
                             Add
                           </button>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -480,41 +349,12 @@ export default function POS(): React.JSX.Element {
             </div>
           )}
 
-          {/* Floating action bar when items are selected for removal */}
-          {removeMode && (
-            <div className="sticky bottom-0 left-0 right-0 mt-3 flex items-center justify-between gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl px-4 py-3 shadow-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground">
-                  {selectedForRemoval.size} item{selectedForRemoval.size !== 1 ? 's' : ''} selected
-                </span>
-                <button
-                  onClick={selectAllFiltered}
-                  className="text-xs text-primary hover:underline font-medium cursor-pointer"
-                >
-                  Select All
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="text-xs cursor-pointer" onClick={exitRemoveMode}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={selectedForRemoval.size === 0}
-                  className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50"
-                  onClick={removeSelectedItems}
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
-                </Button>
-              </div>
-            </div>
-          )}
+
         </CardContent>
       </Card>
 
       {/* RIGHT: Cart & Payment Details */}
-      <Card className="w-full lg:w-1/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 h-[60vh] lg:h-auto">
+      <Card className="w-full lg:w-1/3 flex flex-col justify-between bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 h-auto min-h-fit lg:h-auto">
         <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
           <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
             <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
@@ -529,7 +369,7 @@ export default function POS(): React.JSX.Element {
           <div className="flex-1 flex flex-col overflow-y-auto border-b border-border/60 pb-2 space-y-1">
             {cart.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-10">
-                <ShoppingCart className="w-9 h-9 mb-2 opacity-50 text-emerald-500" />
+                <ShoppingCart className="w-9 h-9 mb-2 opacity-50 text-primary" />
                 <p className="text-sm font-semibold text-foreground">Cart is empty</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Add products to get started</p>
               </div>
@@ -560,21 +400,16 @@ export default function POS(): React.JSX.Element {
             <div className="relative">
               <div className="flex justify-between items-center mb-1">
                 <Label className="text-xs font-semibold flex items-center gap-1 text-foreground">
-                  <User className="w-3.5 h-3.5 text-emerald-500" /> Customer
+                  <User className="w-3.5 h-3.5 text-primary" /> Customer
                 </Label>
-                <button
-                  onClick={() => setActiveModal('customer')}
-                  className="text-xs text-primary font-medium hover:underline cursor-pointer"
-                >
-                  + New Customer
-                </button>
+
               </div>
 
               {/* Main Trigger Button */}
               <button
                 type="button"
                 onClick={() => setCustomerOpen(!customerOpen)}
-                className="w-full flex items-center justify-between text-xs px-3 py-2 border border-input rounded-lg bg-background text-foreground text-left hover:bg-accent/50 focus:ring-2 focus:ring-primary/40 cursor-pointer transition-all"
+                className="w-full flex items-center justify-between text-[16px] md:text-xs px-3 py-2 border border-input rounded-lg bg-background text-foreground text-left hover:bg-accent/50 focus:ring-2 focus:ring-primary/40 cursor-pointer transition-all min-h-[44px] md:min-h-0"
               >
                 <span className="truncate font-medium">
                   {selectedCustomer && selectedCustomer !== 'walk-in'
@@ -599,7 +434,7 @@ export default function POS(): React.JSX.Element {
                       placeholder="Search customer..."
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="text-xs h-8 bg-background border-input"
+                      className="text-[16px] md:text-xs h-9 md:h-8 bg-background border-input"
                       autoFocus
                     />
                   </div>
@@ -657,8 +492,8 @@ export default function POS(): React.JSX.Element {
                     type="button"
                     size="sm"
                     variant={isSelected ? 'default' : 'outline'}
-                    className={`text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all ${isSelected
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20'
+                    className={`text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all min-h-[44px] md:min-h-0 ${isSelected
+                      ? 'bg-primary hover:bg-primary text-white shadow-sm shadow-primary/20'
                       : 'border-input hover:bg-accent text-foreground'
                       }`}
                     disabled={isUtangDisabled}
@@ -679,7 +514,7 @@ export default function POS(): React.JSX.Element {
                   placeholder="0.00"
                   value={amountTendered}
                   onChange={(e) => setAmountTendered(e.target.value)}
-                  className="text-sm bg-background border-input"
+                  className="text-[16px] md:text-sm bg-background border-input min-h-[44px] md:min-h-0"
                 />
               </div>
             )}
@@ -689,7 +524,7 @@ export default function POS(): React.JSX.Element {
           <div className="border-t border-border/60 pt-3.5 mt-3 space-y-3">
             <div className="flex justify-between items-center text-foreground">
               <span className="font-semibold text-sm">Total</span>
-              <span className="font-bold text-2xl text-emerald-600 dark:text-emerald-400">₱{totalAmount.toFixed(2)}</span>
+              <span className="font-bold text-2xl text-primary dark:text-primary">₱{totalAmount.toFixed(2)}</span>
             </div>
             {paymentType === 'Cash' && (
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -698,7 +533,7 @@ export default function POS(): React.JSX.Element {
               </div>
             )}
 
-            <Button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-lg shadow-emerald-600/25 cursor-pointer rounded-xl py-5" size="lg" onClick={handleCheckout}>
+            <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg cursor-pointer rounded-xl py-5" size="lg" onClick={handleCheckout}>
               Complete Transaction
             </Button>
           </div>
@@ -707,104 +542,9 @@ export default function POS(): React.JSX.Element {
 
       {/* ================= SHADCN DIALOG MODALS ================= */}
 
-      {/* 1. Add Product Dialog */}
-      <Dialog open={activeModal === 'product'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Add New Product</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddProduct} className="space-y-3 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Product Name</Label>
-              <Input required placeholder="e.g. Great Taste White" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Cost Price (₱)</Label>
-                <Input type="number" step="0.01" placeholder="10.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Selling Price (₱)</Label>
-                <Input type="number" step="0.01" required placeholder="12.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Stock Quantity</Label>
-              <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} />
-            </div>
-            <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Product</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      {/* 2. Add Customer Dialog */}
-      <Dialog open={activeModal === 'customer'} onOpenChange={(open) => {
-        if (!open) {
-          setActiveModal('none');
-          setPhoneError('');
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Register New Customer</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddCustomer} className="space-y-3 pt-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">First Name</Label>
-                <Input required placeholder="Juan" value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Last Name</Label>
-                <Input required placeholder="Dela Cruz" value={newLastName} onChange={(e) => setNewLastName(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Phone Number</Label>
-              <Input
-                placeholder="09171234567"
-                value={newPhone}
-                maxLength={11}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                  setNewPhone(val);
-                  if (val.length === 11) {
-                    setPhoneError('');
-                  } else if (phoneError) {
-                    if (val.length === 0) {
-                      setPhoneError('Please enter phone number');
-                    } else {
-                      setPhoneError('Phone number must be exactly 11 digits.');
-                    }
-                  }
-                }}
-                onBlur={() => {
-                  if (!newPhone.trim()) {
-                    setPhoneError('Please enter phone number');
-                  } else if (newPhone.trim().length !== 11) {
-                    setPhoneError('Phone number must be exactly 11 digits.');
-                  } else {
-                    setPhoneError('');
-                  }
-                }}
-                className={phoneError ? 'border-destructive focus-visible:ring-destructive' : ''}
-              />
-              {phoneError && (
-                <p className="text-xs text-destructive font-medium">{phoneError}</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Credit Limit (₱)</Label>
-              <Input type="number" value={newCreditLimit} onChange={(e) => setNewCreditLimit(e.target.value)} />
-            </div>
-            <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Register Customer</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+
 
       {/* 3. Digital Service Dialog */}
       <Dialog open={activeModal === 'digital'} onOpenChange={(open) => !open && setActiveModal('none')}>
@@ -828,21 +568,21 @@ export default function POS(): React.JSX.Element {
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Account / Phone Number</Label>
-              <Input placeholder="09170000000" value={serviceAccount} onChange={(e) => setServiceAccount(e.target.value)} />
+              <Input placeholder="09170000000" value={serviceAccount} onChange={(e) => setServiceAccount(e.target.value)} className="text-[16px] md:text-sm bg-background" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Amount (₱)</Label>
-                <Input type="number" required placeholder="500.00" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} />
+                <Input type="number" required placeholder="500.00" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} className="text-[16px] md:text-sm bg-background" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Convenience Fee (₱)</Label>
-                <Input type="number" value={convenienceFee} onChange={(e) => setConvenienceFee(e.target.value)} />
+                <Input type="number" value={convenienceFee} onChange={(e) => setConvenienceFee(e.target.value)} className="text-[16px] md:text-sm bg-background" />
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium">Reference Number (Optional)</Label>
-              <Input placeholder="Ref # 1002391" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
+              <Input placeholder="Ref # 1002391" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} className="text-[16px] md:text-sm bg-background" />
             </div>
             <DialogFooter className="pt-2">
               <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold cursor-pointer">Add Service to Cart</Button>

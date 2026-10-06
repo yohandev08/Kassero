@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Edit,
   Trash2,
+  X,
   PackageCheck,
   TrendingUp,
   ArrowUpDown
@@ -55,6 +56,8 @@ export default function InventoryManager(): React.JSX.Element {
   const [isRestockOpen, setIsRestockOpen] = useState<boolean>(false);
   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
 
   // Form States - Restock
   const [addStockQty, setAddStockQty] = useState<string>('');
@@ -67,6 +70,7 @@ export default function InventoryManager(): React.JSX.Element {
 
   // Form States - Add New Product
   const [newName, setNewName] = useState<string>('');
+  const [newCategory, setNewCategory] = useState<string>('');
   const [newCostPrice, setNewCostPrice] = useState<string>('');
   const [newSellingPrice, setNewSellingPrice] = useState<string>('');
   const [newStock, setNewStock] = useState<string>('');
@@ -138,9 +142,11 @@ export default function InventoryManager(): React.JSX.Element {
   // 4. Create Product Handler
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newCategory) return alert('Please select a category.');
 
     const { error } = await addProductService({
       product_name: newName,
+      category: newCategory,
       cost_price: parseFloat(newCostPrice) || 0,
       selling_price: parseFloat(newSellingPrice) || 0,
       stock_quantity: parseInt(newStock, 10) || 0,
@@ -153,20 +159,24 @@ export default function InventoryManager(): React.JSX.Element {
     } else {
       alert('New product saved to inventory!');
       setIsAddOpen(false);
-      setNewName(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStock('');
+      setNewName(''); setNewCategory(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStock('');
       fetchProducts();
     }
   };
 
   // 5. Archive Product Handler
-  const handleDeleteProduct = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to remove "${name}" from inventory?`)) return;
+  const handleDeleteSelected = async () => {
+    if (selectedItems.size === 0) return;
+    if (!confirm(`Are you sure you want to remove ${selectedItems.size} items from inventory?`)) return;
 
-    const { error } = await archiveProducts([id]);
+    const ids = Array.from(selectedItems);
+    const { error } = await archiveProducts(ids);
 
     if (error) {
       alert('Failed to remove: ' + error.message);
     } else {
+      setSelectedItems(new Set());
+      setIsSelectMode(false);
       fetchProducts();
     }
   };
@@ -204,23 +214,39 @@ export default function InventoryManager(): React.JSX.Element {
     return true;
   });
 
+  const toggleSelect = (productId: number) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    if (selectedItems.size === filteredProducts.length && filteredProducts.length > 0) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredProducts.map(p => p.product_id)));
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full p-0.5 bg-background gap-5 overflow-y-auto lg:overflow-hidden">
+    <div className="flex flex-col lg:h-full p-0.5 bg-background gap-5 lg:overflow-hidden">
       {/* HEADER & METRIC SUMMARY CARDS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
+      <div className="flex flex-row justify-between items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary shrink-0">
               <Package className="w-5 h-5" />
             </div>
-            Inventory & Restock Dashboard
+            <span className="truncate">Inventory & Restock Dashboard</span>
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Monitor stock levels, reorder alerts, and supplier deliveries</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">Monitor stock levels, reorder alerts, and supplier deliveries</p>
         </div>
 
-        <div className="flex w-full sm:w-auto gap-2">
-          
-          <Button size="sm" onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm shadow-emerald-600/20">
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" onClick={() => setIsAddOpen(true)} className="w-fit shrink-0 text-xs font-semibold bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-sm shadow-primary/20">
             <PlusCircle className="w-3.5 h-3.5 mr-1" /> Add New Item
           </Button>
         </div>
@@ -267,9 +293,9 @@ export default function InventoryManager(): React.JSX.Element {
           <CardContent className="p-4 flex justify-between items-center">
             <div>
               <p className="text-[11px] font-semibold uppercase text-muted-foreground">Inventory Cost Value</p>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">₱{totalInventoryValue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary dark:text-primary mt-0.5">₱{totalInventoryValue.toFixed(2)}</p>
             </div>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary dark:text-primary">
               <TrendingUp className="w-6 h-6" />
             </div>
           </CardContent>
@@ -287,7 +313,7 @@ export default function InventoryManager(): React.JSX.Element {
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 text-xs bg-background border-input"
+                className="pl-9 text-[16px] md:text-xs bg-background border-input min-h-[44px] md:min-h-0"
               />
             </div>
 
@@ -298,7 +324,7 @@ export default function InventoryManager(): React.JSX.Element {
                 size="sm"
                 className={`text-xs font-semibold cursor-pointer ${
                   filterTab === 'all' 
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs' 
+                    ? 'bg-primary text-white hover:bg-primary shadow-xs' 
                     : 'border-input hover:bg-accent text-foreground'
                 }`}
                 onClick={() => setFilterTab('all')}
@@ -334,15 +360,20 @@ export default function InventoryManager(): React.JSX.Element {
         </CardHeader>
 
         {/* INVENTORY TABLE */}
-        <CardContent className="flex-1 overflow-y-auto p-0">
+        <CardContent className="flex-1 overflow-auto p-0">
           {loading ? (
             <div className="text-center py-20 text-muted-foreground text-xs">Loading inventory database...</div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground text-xs">No matching products found</div>
           ) : (
             <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-muted-foreground font-bold uppercase sticky top-0 border-b border-border/60 backdrop-blur-xs">
+              <thead className="bg-muted/50 text-muted-foreground font-bold uppercase sticky top-0 border-b border-border/60 backdrop-blur-xs z-10">
                 <tr>
+                  {isSelectMode && (
+                    <th className="p-3.5 w-10">
+                      <input type="checkbox" onChange={selectAllFiltered} checked={filteredProducts.length > 0 && selectedItems.size === filteredProducts.length} className="cursor-pointer" />
+                    </th>
+                  )}
                   <th className="p-3.5">Product Name</th>
                   <th className="p-3.5">Cost Price</th>
                   <th className="p-3.5">Selling Price</th>
@@ -360,13 +391,18 @@ export default function InventoryManager(): React.JSX.Element {
 
                   return (
                     <tr key={product.product_id} className="hover:bg-muted/40 transition-colors">
+                      {isSelectMode && (
+                        <td className="p-3.5">
+                          <input type="checkbox" checked={selectedItems.has(product.product_id)} onChange={() => toggleSelect(product.product_id)} className="cursor-pointer" />
+                        </td>
+                      )}
                       <td className="p-3.5 font-semibold text-foreground">
                         {product.product_name}
                         {product.unit_type && <span className="text-[10px] text-muted-foreground ml-1 font-normal">({product.unit_type})</span>}
                       </td>
                       <td className="p-3.5 text-muted-foreground">₱{product.cost_price.toFixed(2)}</td>
                       <td className="p-3.5 text-foreground font-bold">₱{product.selling_price.toFixed(2)}</td>
-                      <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <td className="p-3.5 text-primary dark:text-primary font-semibold">
                         +₱{margin.toFixed(2)}
                       </td>
                       <td className="p-3.5 font-bold text-sm text-foreground">
@@ -378,14 +414,14 @@ export default function InventoryManager(): React.JSX.Element {
                         ) : isLow ? (
                           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-medium">Low Stock ({product.reorder_level ?? 5})</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">In Stock</Badge>
+                          <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary dark:text-primary border border-primary/30">In Stock</Badge>
                         )}
                       </td>
                       <td className="p-3.5 text-right space-x-1.5">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs font-medium border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                          className="h-7 text-xs font-medium border-primary/30 text-primary dark:text-primary hover:bg-primary/10 cursor-pointer"
                           onClick={() => openRestockModal(product)}
                         >
                           <ArrowUpDown className="w-3 h-3 mr-1" /> Restock
@@ -398,14 +434,6 @@ export default function InventoryManager(): React.JSX.Element {
                         >
                           <Edit className="w-3 h-3 mr-1" /> Edit
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 cursor-pointer rounded-lg"
-                          onClick={() => handleDeleteProduct(product.product_id, product.product_name)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
                       </td>
                     </tr>
                   );
@@ -413,6 +441,48 @@ export default function InventoryManager(): React.JSX.Element {
               </tbody>
             </table>
           )}
+
+          {/* Floating action button at bottom right */}
+          <div className="sticky bottom-4 flex justify-end px-4 z-20 pointer-events-none mt-4 pb-2">
+            <div className="pointer-events-auto flex flex-col items-end gap-2">
+              {isSelectMode ? (
+                <div className="flex flex-col gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl p-3 shadow-lg min-w-[200px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">
+                      {selectedItems.size} selected
+                    </span>
+                    <button
+                      onClick={selectAllFiltered}
+                      className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                    >
+                      Select All
+                    </button>
+                  </div>
+                  <div className="flex gap-2 w-full">
+                    <Button size="sm" variant="outline" className="text-xs cursor-pointer flex-1" onClick={() => { setIsSelectMode(false); setSelectedItems(new Set()); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={selectedItems.size === 0}
+                      className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50 flex-1"
+                      onClick={handleDeleteSelected}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Delete {selectedItems.size > 0 ? `(${selectedItems.size})` : ''}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline"
+                  className="text-xs font-semibold cursor-pointer shadow-lg text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30 bg-card"
+                  onClick={() => setIsSelectMode(true)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                </Button>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -440,12 +510,12 @@ export default function InventoryManager(): React.JSX.Element {
                   placeholder="e.g. 24"
                   value={addStockQty}
                   onChange={(e) => setAddStockQty(e.target.value)}
-                  className="text-sm font-semibold bg-background"
+                  className="text-[16px] md:text-sm font-semibold bg-background min-h-[44px] md:min-h-0"
                 />
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">
+                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">
                   Confirm Restock
                 </Button>
               </DialogFooter>
@@ -481,7 +551,7 @@ export default function InventoryManager(): React.JSX.Element {
                 <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} className="bg-background" />
               </div>
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Changes</Button>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">Save Changes</Button>
               </DialogFooter>
             </form>
           )}
@@ -498,6 +568,25 @@ export default function InventoryManager(): React.JSX.Element {
             <div className="space-y-1">
               <Label className="text-xs font-medium">Product Name</Label>
               <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background" />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Category <span className="text-red-500">*</span></Label>
+              <Select required value={newCategory} onValueChange={(val) => setNewCategory(val ?? '')}>
+                <SelectTrigger className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0">
+                  <SelectValue placeholder="Select Category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem className="cursor-pointer" value="Beverages">Beverages (Coffee, Juice, Water)</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Snacks">Snacks (Chips, Biscuits)</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Canned Goods">Canned Goods</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Noodles">Noodles</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Condiments">Condiments (Sauces, Spices)</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Personal Care">Personal Care (Soap, Shampoo)</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Household">Household (Detergent, Cleaners)</SelectItem>
+                  <SelectItem className="cursor-pointer" value="Others">Others</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -525,7 +614,7 @@ export default function InventoryManager(): React.JSX.Element {
             <div className="space-y-1">
               <Label className="text-xs font-medium">Unit Type</Label>
               <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
-                <SelectTrigger className="text-xs bg-background">
+                <SelectTrigger className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -540,7 +629,7 @@ export default function InventoryManager(): React.JSX.Element {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer">Save Product</Button>
+              <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>
