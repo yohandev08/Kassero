@@ -86,15 +86,15 @@ export default function LoginPage(): React.JSX.Element {
           </p>
         </div>
 
-        <div className="w-full max-w-sm bg-card p-6 rounded-2xl shadow-lg border border-border/50">
-          <form onSubmit={handleLogin} className="space-y-4">
+        <div className="w-full max-w-sm bg-background p-8 rounded-[2rem] shadow-xl shadow-primary/5 border border-border/50">
+          <form onSubmit={handleLogin} className="space-y-5">
             {error && (
-              <div className="p-3 text-sm text-destructive-foreground bg-destructive/90 rounded-lg">
+              <div className="p-4 text-sm font-semibold text-destructive-foreground bg-destructive/90 rounded-xl shadow-sm">
                 {error}
               </div>
             )}
-            <div className="space-y-2 text-left">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-2.5 text-left">
+              <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Email</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -102,20 +102,22 @@ export default function LoginPage(): React.JSX.Element {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-12 rounded-xl bg-muted/30 focus-visible:ring-primary/40 focus-visible:bg-background transition-colors"
               />
             </div>
-            <div className="space-y-2 text-left">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2.5 text-left">
+              <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Password</Label>
               <Input 
                 id="password" 
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-12 rounded-xl bg-muted/30 focus-visible:ring-primary/40 focus-visible:bg-background transition-colors"
               />
             </div>
-            <Button type="submit" className="w-full font-semibold cursor-pointer" disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            <Button type="submit" className="w-full h-12 rounded-xl font-bold text-md cursor-pointer mt-2 shadow-md shadow-primary/20 hover:bg-primary/90 transition-all" disabled={loading}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
               {loading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>

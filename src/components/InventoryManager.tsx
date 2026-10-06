@@ -8,7 +8,7 @@ import {
   updateProduct,
   archiveProducts,
   updateStockQuantity,
-} from '@/services/productService';
+} from '@/services/product.Service';
 import {
   Package,
   Search,
@@ -19,14 +19,15 @@ import {
   X,
   PackageCheck,
   TrendingUp,
-  ArrowUpDown
+  ArrowUpDown,
+  PackagePlus
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader,} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -42,6 +43,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type FilterTab = 'all' | 'low_stock' | 'out_of_stock';
 
@@ -232,240 +236,316 @@ export default function InventoryManager(): React.JSX.Element {
   };
 
   return (
-    <div className="flex flex-col lg:h-full p-0.5 bg-background gap-5 lg:overflow-hidden">
-      {/* HEADER & METRIC SUMMARY CARDS */}
-      <div className="flex flex-row justify-between items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary shrink-0">
-              <Package className="w-5 h-5" />
-            </div>
-            <span className="truncate">Inventory & Restock Dashboard</span>
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">Monitor stock levels, reorder alerts, and supplier deliveries</p>
+    <div className="flex flex-col lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-hidden">
+      {/* HEADER & ACTIONS */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-background p-4 rounded-2xl shadow-sm border border-border/50 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Inventory & Restock</h2>
+            <p className="text-sm text-muted-foreground">Monitor stock levels and supplier deliveries</p>
+          </div>
         </div>
 
-        <div className="flex shrink-0 gap-2">
-          <Button size="sm" onClick={() => setIsAddOpen(true)} className="w-fit shrink-0 text-xs font-semibold bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-sm shadow-primary/20">
-            <PlusCircle className="w-3.5 h-3.5 mr-1" /> Add New Item
+        <div className="flex shrink-0 gap-3">
+          <Button
+            className="rounded-xl h-11 px-4 gap-2 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer"
+            onClick={() => setIsAddOpen(true)}
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add New Item</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
-          <CardContent className="p-4 flex justify-between items-center">
+      {/* METRICS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+        <Card className="border-border/50 bg-background shadow-sm rounded-2xl overflow-hidden group hover:border-primary/50 transition-colors">
+          <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase text-muted-foreground">Total Products</p>
-              <p className="text-2xl font-bold text-foreground mt-0.5">{totalItems}</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-1 line-clamp-1">Total Products</p>
+              <p className="text-xl sm:text-3xl font-black text-foreground">{totalItems}</p>
             </div>
-            <div className="p-2 rounded-xl bg-muted text-muted-foreground">
-              <PackageCheck className="w-6 h-6" />
+            <div className="p-2 sm:p-3 rounded-xl bg-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors text-muted-foreground w-fit">
+              <PackageCheck className="w-5 h-5 sm:w-7 sm:h-7" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/30 bg-amber-500/5 text-card-foreground shadow-sm rounded-xl">
-          <CardContent className="p-4 flex justify-between items-center">
+        <Card className="border-amber-500/30 bg-background shadow-sm rounded-2xl overflow-hidden group hover:border-amber-500/50 transition-colors">
+          <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400">Low Stock Warning</p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">{lowStockCount}</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase text-amber-600 dark:text-amber-400 tracking-wider mb-1 line-clamp-1">Low Stock Warning</p>
+              <p className="text-xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">{lowStockCount}</p>
             </div>
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="p-2 sm:p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 transition-colors w-fit">
+              <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-rose-500/30 bg-rose-500/5 text-card-foreground shadow-sm rounded-xl">
-          <CardContent className="p-4 flex justify-between items-center">
+        <Card className="border-rose-500/30 bg-background shadow-sm rounded-2xl overflow-hidden group hover:border-rose-500/50 transition-colors">
+          <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase text-rose-600 dark:text-rose-400">Out of Stock</p>
-              <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5">{outOfStockCount}</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase text-rose-600 dark:text-rose-400 tracking-wider mb-1 line-clamp-1">Out of Stock</p>
+              <p className="text-xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">{outOfStockCount}</p>
             </div>
-            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="p-2 sm:p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 transition-colors w-fit">
+              <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card text-card-foreground shadow-sm rounded-xl">
-          <CardContent className="p-4 flex justify-between items-center">
+        <Card className="border-primary/30 bg-background shadow-sm rounded-2xl overflow-hidden group hover:border-primary/50 transition-colors">
+          <CardContent className="p-3 sm:p-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase text-muted-foreground">Inventory Cost Value</p>
-              <p className="text-2xl font-bold text-primary dark:text-primary mt-0.5">₱{totalInventoryValue.toFixed(2)}</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase text-primary tracking-wider mb-1 line-clamp-1">Inventory Value</p>
+              <p className="text-xl sm:text-3xl font-black text-primary">₱{totalInventoryValue.toFixed(2)}</p>
             </div>
-            <div className="p-2 rounded-xl bg-primary/10 text-primary dark:text-primary">
-              <TrendingUp className="w-6 h-6" />
+            <div className="p-2 sm:p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors w-fit">
+              <TrendingUp className="w-5 h-5 sm:w-7 sm:h-7" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* FILTER & TABLE SECTION */}
-      <Card className="flex-1 flex flex-col overflow-hidden border-border/80 bg-card text-card-foreground shadow-md rounded-xl">
-        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-          <div className="flex justify-between items-center">
+      <Card className="flex-1 flex flex-col overflow-hidden border-border/50 bg-background shadow-md rounded-2xl">
+        <CardHeader className="pb-4 border-b border-border/50 bg-muted/10">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Search Input */}
-            <div className="relative w-72">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+            <div className="relative w-full lg:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 text-[16px] md:text-xs bg-background border-input min-h-[44px] md:min-h-0"
+                className="pl-9 h-11 bg-background border-input rounded-xl focus-visible:ring-primary/40 shadow-sm"
               />
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2">
-              <Button
-                variant={filterTab === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className={`text-xs font-semibold cursor-pointer ${
-                  filterTab === 'all' 
-                    ? 'bg-primary text-white hover:bg-primary shadow-xs' 
-                    : 'border-input hover:bg-accent text-foreground'
-                }`}
-                onClick={() => setFilterTab('all')}
-              >
-                All Items ({totalItems})
-              </Button>
-              <Button
-                variant={filterTab === 'low_stock' ? 'default' : 'outline'}
-                size="sm"
-                className={`text-xs font-semibold cursor-pointer ${
-                  filterTab === 'low_stock'
-                    ? 'bg-amber-600 text-white hover:bg-amber-700'
-                    : 'text-amber-600 border-amber-500/30 hover:bg-amber-500/10 dark:text-amber-400'
-                }`}
-                onClick={() => setFilterTab('low_stock')}
-              >
-                Low Stock ({lowStockCount})
-              </Button>
-              <Button
-                variant={filterTab === 'out_of_stock' ? 'default' : 'outline'}
-                size="sm"
-                className={`text-xs font-semibold cursor-pointer ${
-                  filterTab === 'out_of_stock'
-                    ? 'bg-rose-600 text-white hover:bg-rose-700'
-                    : 'text-rose-600 border-rose-500/30 hover:bg-rose-500/10 dark:text-rose-400'
-                }`}
-                onClick={() => setFilterTab('out_of_stock')}
-              >
-                Out of Stock ({outOfStockCount})
-              </Button>
-            </div>
+            <Tabs value={filterTab} onValueChange={(val) => setFilterTab(val as FilterTab)} className="w-full lg:w-auto">
+              <TabsList className="h-11 p-1 bg-muted/50 border border-border/50 rounded-xl w-full lg:w-auto">
+                <TabsTrigger value="all" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer">
+                  All ({totalItems})
+                </TabsTrigger>
+                <TabsTrigger value="low_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-600 data-[state=active]:shadow-sm cursor-pointer">
+                  Low Stock ({lowStockCount})
+                </TabsTrigger>
+                <TabsTrigger value="out_of_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-600 data-[state=active]:shadow-sm cursor-pointer">
+                  Out of Stock ({outOfStockCount})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </CardHeader>
 
         {/* INVENTORY TABLE */}
-        <CardContent className="flex-1 overflow-auto p-0">
+        <ScrollArea className="flex-1">
           {loading ? (
-            <div className="text-center py-20 text-muted-foreground text-xs">Loading inventory database...</div>
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-60">
+              <Package className="w-12 h-12 mb-4 animate-pulse" />
+              <p className="font-semibold text-sm">Loading inventory database...</p>
+            </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground text-xs">No matching products found</div>
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-60">
+              <Search className="w-12 h-12 mb-4" />
+              <p className="font-semibold text-sm">No matching products found</p>
+              <p className="text-xs mt-1">Try adjusting your filters or search term</p>
+            </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-muted-foreground font-bold uppercase sticky top-0 border-b border-border/60 backdrop-blur-xs z-10">
-                <tr>
-                  {isSelectMode && (
-                    <th className="p-3.5 w-10">
-                      <input type="checkbox" onChange={selectAllFiltered} checked={filteredProducts.length > 0 && selectedItems.size === filteredProducts.length} className="cursor-pointer" />
-                    </th>
-                  )}
-                  <th className="p-3.5">Product Name</th>
-                  <th className="p-3.5">Cost Price</th>
-                  <th className="p-3.5">Selling Price</th>
-                  <th className="p-3.5">Profit Margin</th>
-                  <th className="p-3.5">Stock Quantity</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader className="bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+                    <TableRow className="hover:bg-transparent border-border/50">
+                      {isSelectMode && (
+                        <TableHead className="w-12 text-center px-4">
+                          <input type="checkbox" onChange={selectAllFiltered} checked={filteredProducts.length > 0 && selectedItems.size === filteredProducts.length} className="w-4 h-4 cursor-pointer rounded border-border" />
+                        </TableHead>
+                      )}
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Product Name</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Cost Price</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Selling Price</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Profit Margin</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3 text-center">Stock</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Status</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((product) => {
+                      const margin = product.selling_price - product.cost_price;
+                      const isLow = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
+                      const isOut = product.stock_quantity === 0;
+
+                      return (
+                        <TableRow key={product.product_id} className="hover:bg-muted/20 border-border/40 transition-colors group">
+                          {isSelectMode && (
+                            <TableCell className="text-center px-4 py-3">
+                              <input type="checkbox" checked={selectedItems.has(product.product_id)} onChange={() => toggleSelect(product.product_id)} className="w-4 h-4 cursor-pointer rounded border-border" />
+                            </TableCell>
+                          )}
+                          <TableCell className="font-semibold text-foreground text-sm px-4 py-3">
+                            {product.product_name}
+                            {product.unit_type && <span className="text-[10px] text-muted-foreground ml-2 px-1.5 py-0.5 rounded bg-muted/50 font-normal uppercase tracking-wider">{product.unit_type}</span>}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground px-4 py-3">₱{product.cost_price.toFixed(2)}</TableCell>
+                          <TableCell className="text-foreground font-bold px-4 py-3">₱{product.selling_price.toFixed(2)}</TableCell>
+                          <TableCell className="font-bold text-green-600 dark:text-green-400 px-4 py-3">+₱{margin.toFixed(2)}</TableCell>
+                          <TableCell className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${isOut ? 'bg-rose-500/10 text-rose-600' : isLow ? 'bg-amber-500/10 text-amber-600' : 'bg-secondary text-secondary-foreground'}`}>
+                              {product.stock_quantity}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            {isOut ? (
+                              <Badge variant="destructive" className="text-[10px] uppercase tracking-wider font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">Out of Stock</Badge>
+                            ) : isLow ? (
+                              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] uppercase tracking-wider font-bold">Low Stock ({product.reorder_level ?? 5})</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">In Stock</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right px-4 py-3">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold border-primary/30 text-primary dark:text-primary hover:bg-primary/10 cursor-pointer rounded-lg shadow-sm"
+                                onClick={() => openRestockModal(product)}
+                              >
+                                <ArrowUpDown className="w-3 h-3 mr-1" /> Restock
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold border-border hover:bg-accent text-foreground cursor-pointer rounded-lg shadow-sm"
+                                onClick={() => openEditModal(product)}
+                              >
+                                <Edit className="w-3 h-3 mr-1" /> Edit
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="grid grid-cols-1 gap-4 md:hidden p-4">
                 {filteredProducts.map((product) => {
                   const margin = product.selling_price - product.cost_price;
                   const isLow = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
                   const isOut = product.stock_quantity === 0;
 
                   return (
-                    <tr key={product.product_id} className="hover:bg-muted/40 transition-colors">
+                    <Card key={product.product_id} className={`relative overflow-hidden border-border/50 shadow-sm ${isSelectMode && selectedItems.has(product.product_id) ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-500/5' : ''}`}>
                       {isSelectMode && (
-                        <td className="p-3.5">
-                          <input type="checkbox" checked={selectedItems.has(product.product_id)} onChange={() => toggleSelect(product.product_id)} className="cursor-pointer" />
-                        </td>
+                        <div className="absolute top-4 left-4 z-10 flex items-center justify-center">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedItems.has(product.product_id)} 
+                            onChange={() => toggleSelect(product.product_id)} 
+                            className="w-6 h-6 cursor-pointer rounded border-border accent-rose-500" 
+                          />
+                        </div>
                       )}
-                      <td className="p-3.5 font-semibold text-foreground">
-                        {product.product_name}
-                        {product.unit_type && <span className="text-[10px] text-muted-foreground ml-1 font-normal">({product.unit_type})</span>}
-                      </td>
-                      <td className="p-3.5 text-muted-foreground">₱{product.cost_price.toFixed(2)}</td>
-                      <td className="p-3.5 text-foreground font-bold">₱{product.selling_price.toFixed(2)}</td>
-                      <td className="p-3.5 text-primary dark:text-primary font-semibold">
-                        +₱{margin.toFixed(2)}
-                      </td>
-                      <td className="p-3.5 font-bold text-sm text-foreground">
-                        {product.stock_quantity}
-                      </td>
-                      <td className="p-3.5">
-                        {isOut ? (
-                          <Badge variant="destructive" className="text-[10px] font-medium bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">Out of Stock</Badge>
-                        ) : isLow ? (
-                          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] font-medium">Low Stock ({product.reorder_level ?? 5})</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px] font-medium bg-primary/10 text-primary dark:text-primary border border-primary/30">In Stock</Badge>
-                        )}
-                      </td>
-                      <td className="p-3.5 text-right space-x-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs font-medium border-primary/30 text-primary dark:text-primary hover:bg-primary/10 cursor-pointer"
-                          onClick={() => openRestockModal(product)}
-                        >
-                          <ArrowUpDown className="w-3 h-3 mr-1" /> Restock
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs font-medium border-input hover:bg-accent text-foreground cursor-pointer"
-                          onClick={() => openEditModal(product)}
-                        >
-                          <Edit className="w-3 h-3 mr-1" /> Edit
-                        </Button>
-                      </td>
-                    </tr>
+                      <CardContent className={`p-4 flex flex-col gap-3 ${isSelectMode ? 'pl-14' : ''}`}>
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex flex-col">
+                            <h3 className="font-bold text-foreground text-base tracking-tight leading-tight">{product.product_name}</h3>
+                            {product.unit_type && <span className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">{product.unit_type}</span>}
+                          </div>
+                          <div>
+                            {isOut ? (
+                              <Badge variant="destructive" className="text-[10px] uppercase tracking-wider font-bold bg-rose-500/15 text-rose-600 border border-rose-500/30">Out</Badge>
+                            ) : isLow ? (
+                              <Badge className="bg-amber-500/15 text-amber-700 border border-amber-500/30 text-[10px] uppercase tracking-wider font-bold">Low ({product.reorder_level ?? 5})</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-green-500/10 text-green-600 border border-green-500/30">In Stock</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 py-3 border-y border-border/40">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Cost</span>
+                            <span className="text-sm font-semibold">₱{product.cost_price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex flex-col border-l border-border/40 pl-3">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Price</span>
+                            <span className="text-sm font-bold text-foreground">₱{product.selling_price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex flex-col border-l border-border/40 pl-3">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Stock</span>
+                            <span className={`text-sm font-black ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-primary'}`}>
+                              {product.stock_quantity}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-1">
+                          <div className="text-xs font-bold text-green-600 dark:text-green-400">
+                            Margin: +₱{margin.toFixed(2)}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 min-w-[44px] text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 rounded-lg cursor-pointer px-3"
+                              onClick={() => openRestockModal(product)}
+                            >
+                              <ArrowUpDown className="w-4 h-4 md:mr-1" /> <span className="hidden sm:inline">Restock</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 min-w-[44px] text-xs font-semibold border-border hover:bg-accent text-foreground rounded-lg cursor-pointer px-3"
+                              onClick={() => openEditModal(product)}
+                            >
+                              <Edit className="w-4 h-4 md:mr-1" /> <span className="hidden sm:inline">Edit</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
 
           {/* Floating action button at bottom right */}
           <div className="sticky bottom-4 flex justify-end px-4 z-20 pointer-events-none mt-4 pb-2">
             <div className="pointer-events-auto flex flex-col items-end gap-2">
               {isSelectMode ? (
-                <div className="flex flex-col gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl p-3 shadow-lg min-w-[200px]">
+                <div className="flex flex-col gap-3 bg-card/95 backdrop-blur-md border border-rose-500/40 rounded-xl p-4 shadow-xl min-w-[220px]">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">
+                    <span className="text-sm font-bold text-foreground">
                       {selectedItems.size} selected
                     </span>
                     <button
                       onClick={selectAllFiltered}
-                      className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                      className="text-xs text-primary hover:underline font-bold cursor-pointer uppercase tracking-wider"
                     >
                       Select All
                     </button>
                   </div>
                   <div className="flex gap-2 w-full">
-                    <Button size="sm" variant="outline" className="text-xs cursor-pointer flex-1" onClick={() => { setIsSelectMode(false); setSelectedItems(new Set()); }}>
+                    <Button size="sm" variant="outline" className="text-xs font-bold cursor-pointer flex-1 rounded-lg" onClick={() => { setIsSelectMode(false); setSelectedItems(new Set()); }}>
                       Cancel
                     </Button>
                     <Button
                       size="sm"
                       disabled={selectedItems.size === 0}
-                      className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50 flex-1"
+                      className="text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 shadow-md cursor-pointer disabled:opacity-50 flex-1 rounded-lg"
                       onClick={handleDeleteSelected}
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
@@ -474,35 +554,44 @@ export default function InventoryManager(): React.JSX.Element {
                   </div>
                 </div>
               ) : (
-                <Button size="sm" variant="outline"
-                  className="text-xs font-semibold cursor-pointer shadow-lg text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30 bg-card"
+                <Button size="icon" variant="outline"
+                  className="w-12 h-12 rounded-full cursor-pointer shadow-xl border-rose-500/30 text-rose-600 hover:bg-rose-500/10 bg-card hover:scale-105 transition-transform"
                   onClick={() => setIsSelectMode(true)}
+                  title="Remove Items"
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                  <Trash2 className="w-5 h-5" />
                 </Button>
               )}
             </div>
           </div>
-        </CardContent>
+        </ScrollArea>
       </Card>
 
       {/* ================= MODALS ================= */}
 
       {/* 1. RESTOCK MODAL */}
       <Dialog open={isRestockOpen} onOpenChange={setIsRestockOpen}>
-        <DialogContent className="sm:max-w-[360px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Restock Item</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-6 border-b border-primary/20">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+                <ArrowUpDown className="w-6 h-6" />
+                Restock Inventory
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedProduct && (
-            <form onSubmit={handleRestock} className="space-y-3 pt-2">
-              <div className="bg-muted/40 p-3 rounded-xl border border-border text-xs space-y-1">
-                <p className="font-bold text-foreground">{selectedProduct.product_name}</p>
-                <p className="text-muted-foreground">Current Stock: <span className="font-semibold text-foreground">{selectedProduct.stock_quantity}</span></p>
+            <form onSubmit={handleRestock} className="p-6 space-y-5">
+              <div className="bg-muted/40 p-4 rounded-xl border border-border/50 text-sm space-y-2 shadow-inner">
+                <p className="font-bold text-foreground text-base">{selectedProduct.product_name}</p>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Current Stock Level</span>
+                  <Badge variant="secondary" className="font-black text-sm px-3 bg-background border-border/50">{selectedProduct.stock_quantity}</Badge>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Quantity to Add</Label>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Quantity to Add</Label>
                 <Input
                   type="number"
                   min="1"
@@ -510,12 +599,13 @@ export default function InventoryManager(): React.JSX.Element {
                   placeholder="e.g. 24"
                   value={addStockQty}
                   onChange={(e) => setAddStockQty(e.target.value)}
-                  className="text-[16px] md:text-sm font-semibold bg-background min-h-[44px] md:min-h-0"
+                  className="text-lg font-bold bg-background h-12 rounded-xl focus-visible:ring-primary/40"
                 />
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">
+              <DialogFooter className="pt-4 border-t border-border/50 mt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsRestockOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">
                   Confirm Restock
                 </Button>
               </DialogFooter>
@@ -526,32 +616,38 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 2. EDIT PRODUCT MODAL */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Edit Product Details</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-muted p-6 border-b border-border/50">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+                <Edit className="w-6 h-6" />
+                Edit Product Details
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           {selectedProduct && (
-            <form onSubmit={handleEditProduct} className="space-y-3 pt-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Product Name</Label>
-                <Input required value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-background" />
+            <form onSubmit={handleEditProduct} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Name</Label>
+                <Input required value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Cost Price (₱)</Label>
-                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} className="bg-background" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cost Price (₱)</Label>
+                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Selling Price (₱)</Label>
-                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(e) => setEditSellingPrice(e.target.value)} className="bg-background" />
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Selling Price (₱)</Label>
+                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(e) => setEditSellingPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Reorder Level Alert Limit</Label>
-                <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} className="bg-background" />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reorder Level Alert Limit</Label>
+                <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
               </div>
-              <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">Save Changes</Button>
+              <DialogFooter className="pt-4 border-t border-border/50">
+                <Button type="button" variant="ghost" onClick={() => setIsEditOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">Save Changes</Button>
               </DialogFooter>
             </form>
           )}
@@ -560,76 +656,83 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 3. ADD NEW PRODUCT MODAL */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Add New Inventory Product</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddProduct} className="space-y-3 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Product Name</Label>
-              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background" />
+        <DialogContent className="sm:max-w-[500px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-6 border-b border-primary/20">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+                <PackagePlus className="w-6 h-6" />
+                Add New Inventory Product
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleAddProduct} className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Name</Label>
+              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Category <span className="text-red-500">*</span></Label>
-              <Select required value={newCategory} onValueChange={(val) => setNewCategory(val ?? '')}>
-                <SelectTrigger className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0">
-                  <SelectValue placeholder="Select Category..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem className="cursor-pointer" value="Beverages">Beverages (Coffee, Juice, Water)</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Snacks">Snacks (Chips, Biscuits)</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Canned Goods">Canned Goods</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Noodles">Noodles</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Condiments">Condiments (Sauces, Spices)</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Personal Care">Personal Care (Soap, Shampoo)</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Household">Household (Detergent, Cleaners)</SelectItem>
-                  <SelectItem className="cursor-pointer" value="Others">Others</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Cost Price (₱)</Label>
-                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} className="bg-background" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category <span className="text-rose-500">*</span></Label>
+                <Select required value={newCategory} onValueChange={(val) => setNewCategory(val ?? '')}>
+                  <SelectTrigger className="h-11 rounded-xl bg-background font-medium focus-visible:ring-primary/40 cursor-pointer">
+                    <SelectValue placeholder="Select Category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem className="cursor-pointer" value="Beverages">Beverages</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Snacks">Snacks</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Canned Goods">Canned Goods</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Noodles">Noodles</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Condiments">Condiments</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Personal Care">Personal Care</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Household">Household</SelectItem>
+                    <SelectItem className="cursor-pointer" value="Others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Selling Price (₱)</Label>
-                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} className="bg-background" />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Unit Type</Label>
+                <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
+                  <SelectTrigger className="h-11 rounded-xl bg-background font-medium focus-visible:ring-primary/40 cursor-pointer">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem className="cursor-pointer" value="pcs">Pieces (pcs)</SelectItem>
+                    <SelectItem className="cursor-pointer" value="pack">Pack</SelectItem>
+                    <SelectItem className="cursor-pointer" value="sachet">Sachet</SelectItem>
+                    <SelectItem className="cursor-pointer" value="bottle">Bottle</SelectItem>
+                    <SelectItem className="cursor-pointer" value="can">Can</SelectItem>
+                    <SelectItem className="cursor-pointer" value="kg">Kilogram (kg)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Initial Stock</Label>
-                <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} className="bg-background" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cost Price (₱)</Label>
+                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Reorder Level Alert</Label>
-                <Input type="number" value={newReorderLevel} onChange={(e) => setNewReorderLevel(e.target.value)} className="bg-background" />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Selling Price (₱)</Label>
+                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Unit Type</Label>
-              <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
-                <SelectTrigger className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pcs">Pieces (pcs)</SelectItem>
-                  <SelectItem value="pack">Pack</SelectItem>
-                  <SelectItem value="sachet">Sachet</SelectItem>
-                  <SelectItem value="bottle">Bottle</SelectItem>
-                  <SelectItem value="can">Can</SelectItem>
-                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Initial Stock</Label>
+                <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reorder Level Alert</Label>
+                <Input type="number" value={newReorderLevel} onChange={(e) => setNewReorderLevel(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+              </div>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">Save Product</Button>
+            <DialogFooter className="pt-4 border-t border-border/50">
+              <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>

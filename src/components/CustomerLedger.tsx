@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import type { Customer, UtangTransaction } from '@/types';
-import { fetchCustomers as fetchCustomersService, updateCustomerBalance } from '@/services/customerService';
-import { fetchUtangHistory, recordPayment, markUtangAsPaid, fetchPayments } from '@/services/paymentService';
+import { fetchCustomers as fetchCustomersService, updateCustomerBalance, addCustomer } from '@/services/customer.Service';
+import { fetchUtangHistory, recordPayment, markUtangAsPaid, fetchPayments } from '@/services/payment.Service';
 import {
   User,
   Search,
@@ -13,7 +13,8 @@ import {
   Receipt,
   Trash2,
   X,
-  Check
+  Check,
+  UserPlus
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
@@ -29,6 +30,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function CustomerLedger(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -43,6 +45,15 @@ export default function CustomerLedger(): React.JSX.Element {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
+
+  // Add Customer State
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState<boolean>(false);
+  const [newCustomer, setNewCustomer] = useState({
+    first_name: '',
+    last_name: '',
+    phone_number: '',
+    credit_limit: 500,
+  });
 
   // Remove feature state
   const [removeMode, setRemoveMode] = useState<boolean>(false);
@@ -178,10 +189,10 @@ export default function CustomerLedger(): React.JSX.Element {
     if (!window.confirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)?`)) return;
 
     try {
-      const { deleteCustomers } = await import('@/services/customerService');
+      const { deleteCustomers } = await import('@/services/customer.Service');
       const { error } = await deleteCustomers(Array.from(selectedForRemoval));
       if (error) throw error;
-      
+
       // Update local state
       setCustomers(customers.filter(c => !selectedForRemoval.has(c.customer_id)));
       if (selectedCustomer && selectedForRemoval.has(selectedCustomer.customer_id)) {
@@ -195,183 +206,232 @@ export default function CustomerLedger(): React.JSX.Element {
     }
   };
 
+  const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomer.first_name || !newCustomer.last_name) {
+      alert('First Name and Last Name are required.');
+      return;
+    }
+    try {
+      const { data, error } = await addCustomer({
+        ...newCustomer,
+        current_balance: 0,
+        is_allowed_utang: true,
+      });
+
+      if (error) throw error;
+
+      await fetchCustomers(); // Refresh the list
+      setIsAddCustomerModalOpen(false);
+      setNewCustomer({ first_name: '', last_name: '', phone_number: '', credit_limit: 500 });
+    } catch (err: any) {
+      console.error('Failed to add customer:', err);
+      alert('Failed to add customer: ' + err.message);
+    }
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row lg:h-full p-0.5 bg-background gap-4 lg:overflow-hidden">
+    <div className="flex flex-col lg:flex-row lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-hidden">
       {/* LEFT: Customer List & Search */}
-      <Card className="w-full lg:w-1/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 lg:shrink h-auto min-h-fit">
-        <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+      <Card className="w-full lg:w-1/3 flex flex-col bg-background shadow-sm border-border/50 rounded-2xl overflow-hidden shrink-0 lg:shrink h-auto lg:h-full min-h-fit relative">
+        <CardHeader className="pb-4 border-b border-border/50 bg-muted/10">
           <div className="flex flex-row justify-between items-center gap-3">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-              <div className="p-1.5 rounded-lg bg-primary/10 text-primary dark:text-primary">
+            <CardTitle className="text-xl font-bold flex items-center gap-3 text-foreground tracking-tight">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
                 <User className="w-5 h-5" />
               </div>
-              <span className="truncate">Customer Directory</span>
+              <span className="truncate">Customers</span>
             </CardTitle>
-            <Button size="sm" variant="outline"
-              className={`text-xs font-semibold cursor-pointer transition-all w-fit shrink-0 ${
-                removeMode
-                  ? 'text-white bg-red-500 border-red-500 hover:bg-red-600 dark:bg-red-600 dark:border-red-600'
-                  : 'text-red-600 border-red-500/30 hover:bg-red-500/10 dark:text-red-400 dark:border-red-400/30'
-              }`}
-              onClick={() => {
-                if (removeMode) exitRemoveMode();
-                else setRemoveMode(true);
-              }}
-            >
-              {removeMode ? <X className="w-3.5 h-3.5 mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
-              {removeMode ? 'Cancel' : 'Remove'}
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button size="sm" variant="outline"
+                className="text-xs font-semibold cursor-pointer rounded-lg bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-all w-fit"
+                onClick={() => setIsAddCustomerModalOpen(true)}
+              >
+                <UserPlus className="w-3.5 h-3.5 mr-1" />
+                Add
+              </Button>
+              <Button size="sm" variant="outline"
+                className={`text-xs font-semibold cursor-pointer rounded-lg transition-all w-fit ${removeMode
+                  ? 'text-white bg-rose-500 border-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:border-rose-600'
+                  : 'text-rose-600 border-rose-500/30 hover:bg-rose-500/10 dark:text-rose-400 dark:border-rose-400/30'
+                  }`}
+                onClick={() => {
+                  if (removeMode) exitRemoveMode();
+                  else setRemoveMode(true);
+                }}
+              >
+                {removeMode ? <X className="w-3.5 h-3.5 mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+                {removeMode ? 'Cancel' : 'Remove'}
+              </Button>
+            </div>
           </div>
-          <CardDescription className="text-xs text-muted-foreground mt-2">Select a customer to view ledger and record payments</CardDescription>
+          <CardDescription className="text-xs text-muted-foreground mt-2">Manage customer accounts and utang</CardDescription>
 
-          <div className="relative mt-3">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+          <div className="relative mt-4">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-[16px] md:text-xs bg-background border-input min-h-[44px] md:min-h-0"
+              className="pl-9 h-11 bg-background border-input rounded-xl focus-visible:ring-primary/40 shadow-sm"
             />
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto space-y-2 p-3 min-h-[250px]">
-          {filteredCustomers.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-xs">No customers found</div>
-          ) : (
-            filteredCustomers.map((customer) => {
-              const isSelected = selectedCustomer?.customer_id === customer.customer_id;
-              const isOverLimit = customer.current_balance > customer.credit_limit;
-              const isSelectedForRemoval = selectedForRemoval.has(customer.customer_id);
+        <ScrollArea className="flex-1">
+          <div className={`p-4 space-y-3 ${removeMode ? 'pb-32' : 'pb-4'}`}>
+            {filteredCustomers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-60">
+                <Search className="w-10 h-10 mb-3" />
+                <p className="text-xs font-semibold">No customers found</p>
+              </div>
+            ) : (
+              filteredCustomers.map((customer) => {
+                const isSelected = selectedCustomer?.customer_id === customer.customer_id;
+                const isOverLimit = customer.current_balance > customer.credit_limit;
+                const isSelectedForRemoval = selectedForRemoval.has(customer.customer_id);
 
-              return (
-                <div
-                  key={customer.customer_id}
-                  onClick={removeMode ? () => toggleSelectForRemoval(customer.customer_id) : () => handleSelectCustomer(customer)}
-                  className={`p-3 rounded-xl border transition-all duration-200 flex justify-between items-center relative ${
-                    removeMode
+                return (
+                  <div
+                    key={customer.customer_id}
+                    onClick={removeMode ? () => toggleSelectForRemoval(customer.customer_id) : () => handleSelectCustomer(customer)}
+                    className={`p-4 rounded-2xl border transition-all duration-200 flex justify-between items-center relative overflow-hidden group ${removeMode
                       ? isSelectedForRemoval
-                        ? 'ring-2 ring-red-500 border-red-500 shadow-red-500/10 cursor-pointer bg-red-500/5'
-                        : 'hover:ring-2 hover:ring-red-300 cursor-pointer bg-card'
+                        ? 'ring-2 ring-rose-500 border-rose-500 shadow-sm cursor-pointer bg-rose-500/5'
+                        : 'hover:ring-2 hover:ring-rose-300 cursor-pointer bg-background'
                       : isSelected
-                        ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30 cursor-pointer'
-                        : 'border-border/70 bg-card hover:bg-muted/40 hover:border-primary/30 cursor-pointer'
-                    }`}
-                >
-                  {/* Checkbox overlay in remove mode */}
-                  {removeMode && (
-                    <div className={`absolute left-3 z-10 w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-all ${
-                      isSelectedForRemoval
-                        ? 'bg-red-500 border-red-500 text-white'
-                        : 'border-muted-foreground/40 bg-background'
-                    }`}>
-                      {isSelectedForRemoval && <Check className="w-3 h-3" />}
+                        ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30 cursor-pointer'
+                        : 'border-border/50 bg-background hover:bg-muted/40 hover:border-primary/30 cursor-pointer'
+                      }`}
+                  >
+                    {/* Checkbox overlay in remove mode */}
+                    {removeMode && (
+                      <div className={`absolute left-4 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelectedForRemoval
+                        ? 'bg-rose-500 border-rose-500 text-white'
+                        : 'border-muted-foreground/40 bg-background group-hover:border-rose-400'
+                        }`}>
+                        {isSelectedForRemoval && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                    )}
+
+                    <div className={removeMode ? "pl-8" : ""}>
+                      <p className="font-bold text-foreground text-sm tracking-tight group-hover:text-primary transition-colors">
+                        {customer.first_name} {customer.last_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{customer.phone_number || 'No phone'}</p>
                     </div>
-                  )}
-                  
-                  <div className={removeMode ? "pl-7" : ""}>
-                    <p className="font-semibold text-foreground text-sm">
-                      {customer.first_name} {customer.last_name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">{customer.phone_number || 'No phone'}</p>
-                  </div>
 
-                  <div className="text-right">
-                    <p
-                      className={`font-bold text-sm ${customer.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-primary dark:text-primary'
-                        }`}
-                    >
-                      ₱{customer.current_balance.toFixed(2)}
-                    </p>
-                    <Badge
-                      variant={isOverLimit ? 'destructive' : 'secondary'}
-                      className={`text-[9px] px-1.5 py-0 font-medium ${!isOverLimit ? 'bg-muted text-muted-foreground' : ''
-                        }`}
-                    >
-                      Limit: ₱{customer.credit_limit}
-                    </Badge>
+                    <div className="text-right flex flex-col items-end">
+                      <p
+                        className={`font-black text-sm mb-1 ${customer.current_balance > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-primary'
+                          }`}
+                      >
+                        ₱{customer.current_balance.toFixed(2)}
+                      </p>
+                      <Badge
+                        variant={isOverLimit ? 'destructive' : 'secondary'}
+                        className={`text-[9px] uppercase tracking-wider font-bold ${isOverLimit ? 'bg-rose-500/10 text-rose-600 border-rose-500/30' : 'bg-muted text-muted-foreground border-border/50'
+                          }`}
+                      >
+                        Limit: ₱{customer.credit_limit}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
 
-          {/* Floating action bar when customers are selected for removal */}
-          {removeMode && (
-            <div className="sticky bottom-0 left-0 right-0 mt-3 flex flex-col gap-3 bg-card/95 backdrop-blur-sm border border-red-500/30 rounded-xl p-3 shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground">
-                  {selectedForRemoval.size} selected
-                </span>
-                <button
-                  onClick={selectAllFiltered}
-                  className="text-xs text-primary hover:underline font-medium cursor-pointer"
-                >
-                  Select All
-                </button>
-              </div>
-              <div className="flex gap-2 w-full">
-                <Button size="sm" variant="outline" className="text-xs cursor-pointer flex-1" onClick={exitRemoveMode}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={selectedForRemoval.size === 0}
-                  className="text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm cursor-pointer disabled:opacity-50 flex-1"
-                  onClick={removeSelectedCustomers}
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
-                </Button>
-              </div>
+        {/* Floating action bar when customers are selected for removal */}
+        {removeMode && (
+          <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-3 bg-card/95 backdrop-blur-md border border-rose-500/40 rounded-2xl p-4 shadow-xl z-20">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-foreground">
+                {selectedForRemoval.size} selected
+              </span>
+              <button
+                onClick={selectAllFiltered}
+                className="text-xs text-primary hover:underline font-bold cursor-pointer uppercase tracking-wider"
+              >
+                Select All
+              </button>
             </div>
-          )}
-        </CardContent>
+            <div className="flex gap-2 w-full">
+              <Button size="sm" variant="outline" className="text-xs font-bold cursor-pointer flex-1 rounded-lg" onClick={exitRemoveMode}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={selectedForRemoval.size === 0}
+                className="text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 shadow-md cursor-pointer disabled:opacity-50 flex-1 rounded-lg"
+                onClick={removeSelectedCustomers}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* RIGHT: Customer Ledger & Utang Breakdown */}
-      <Card className="w-full lg:w-2/3 flex flex-col bg-card text-card-foreground border-border shadow-md rounded-xl overflow-hidden shrink-0 min-h-[60vh] lg:min-h-0">
+      <Card className="w-full lg:w-2/3 flex flex-col bg-background shadow-sm border-border/50 rounded-2xl overflow-hidden shrink-0 min-h-[60vh] lg:min-h-0 lg:h-full">
         {selectedCustomer ? (
           <>
-            <CardHeader className="border-b border-border/60 pb-4 bg-muted/20">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                  <CardTitle className="text-xl font-bold text-foreground">
-                    {selectedCustomer.first_name} {selectedCustomer.last_name}
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Phone: {selectedCustomer.phone_number || 'N/A'}
-                  </p>
+            <CardHeader className="border-b border-border/50 pb-5 bg-muted/10 shrink-0">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-black">
+                    {selectedCustomer.first_name[0]}{selectedCustomer.last_name[0]}
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-black tracking-tight text-foreground">
+                      {selectedCustomer.first_name} {selectedCustomer.last_name}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Phone: {selectedCustomer.phone_number || 'N/A'}
+                    </p>
+                  </div>
                 </div>
 
                 <Button
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
-                  className="w-full sm:w-auto bg-primary hover:bg-primary text-white font-semibold cursor-pointer shadow-sm shadow-primary/20"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-bold rounded-xl h-11 px-6 shadow-md shadow-primary/20 cursor-pointer"
                 >
                   <DollarSign className="w-4 h-4 mr-1" /> Pay Utang
                 </Button>
               </div>
 
               {/* Summary Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Total Debt</p>
-                  <p className="text-xl font-bold text-rose-500 dark:text-rose-400">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                <div className="bg-background p-4 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 text-rose-500 group-hover:scale-110 transition-transform">
+                    <DollarSign className="w-12 h-12" />
+                  </div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Total Debt</p>
+                  <p className="text-3xl font-black text-rose-500 dark:text-rose-400">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Credit Limit</p>
-                  <p className="text-xl font-bold text-foreground">
+                <div className="bg-background p-4 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 text-foreground group-hover:scale-110 transition-transform">
+                    <Receipt className="w-12 h-12" />
+                  </div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Credit Limit</p>
+                  <p className="text-3xl font-black text-foreground">
                     ₱{selectedCustomer.credit_limit.toFixed(2)}
                   </p>
                 </div>
 
-                <div className="bg-background p-3 rounded-xl border border-border/80 shadow-xs">
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Available Credit</p>
-                  <p className="text-xl font-bold text-primary dark:text-primary">
+                <div className="bg-background p-4 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 text-primary group-hover:scale-110 transition-transform">
+                    <CheckCircle className="w-12 h-12" />
+                  </div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Available Credit</p>
+                  <p className="text-3xl font-black text-primary">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
                   </p>
                 </div>
@@ -379,24 +439,24 @@ export default function CustomerLedger(): React.JSX.Element {
             </CardHeader>
 
             {/* Transaction History Section */}
-            <CardContent className="flex-1 overflow-y-auto p-4 flex flex-col">
-              <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
-                <h3 className="font-semibold text-foreground text-sm flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-primary" /> Transaction History
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background shrink-0">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <History className="w-5 h-5 text-primary" /> Transaction History
                 </h3>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant={ledgerTab === 'unpaid' ? 'default' : 'outline'}
-                    className={`h-7 text-[10px] px-2.5 rounded-md cursor-pointer ${ledgerTab === 'unpaid' ? 'bg-primary text-white shadow-sm' : 'bg-background hover:bg-muted'}`}
+                <div className="flex gap-2 p-1 bg-muted/50 rounded-xl border border-border/50">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`h-8 text-xs font-bold px-4 rounded-lg cursor-pointer ${ledgerTab === 'unpaid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     onClick={() => setLedgerTab('unpaid')}
                   >
                     Unpaid
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant={ledgerTab === 'paid' ? 'default' : 'outline'}
-                    className={`h-7 text-[10px] px-2.5 rounded-md cursor-pointer ${ledgerTab === 'paid' ? 'bg-primary text-white shadow-sm' : 'bg-background hover:bg-muted'}`}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`h-8 text-xs font-bold px-4 rounded-lg cursor-pointer ${ledgerTab === 'paid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     onClick={() => setLedgerTab('paid')}
                   >
                     Paid & Payments
@@ -404,80 +464,87 @@ export default function CustomerLedger(): React.JSX.Element {
                 </div>
               </div>
 
-              {(() => {
-                let filteredTimeline: any[] = [];
-                if (ledgerTab === 'unpaid') {
-                  filteredTimeline = utangHistory
-                    .filter(u => u.status === 'Unpaid')
-                    .map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() }));
-                } else {
-                  filteredTimeline = [
-                    ...utangHistory.filter(u => u.status === 'Paid').map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() })),
-                    ...paymentHistory.map(p => ({ ...p, _type: 'payment', _date: new Date(p.created_at).getTime() }))
-                  ];
-                }
-                filteredTimeline.sort((a, b) => b._date - a._date);
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {(() => {
+                    let filteredTimeline: any[] = [];
+                    if (ledgerTab === 'unpaid') {
+                      filteredTimeline = utangHistory
+                        .filter(u => u.status === 'Unpaid')
+                        .map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() }));
+                    } else {
+                      filteredTimeline = [
+                        ...utangHistory.filter(u => u.status === 'Paid').map(u => ({ ...u, _type: 'utang', _date: new Date(u.created_at).getTime() })),
+                        ...paymentHistory.map(p => ({ ...p, _type: 'payment', _date: new Date(p.created_at).getTime() }))
+                      ];
+                    }
+                    filteredTimeline.sort((a, b) => b._date - a._date);
 
-                if (loadingHistory) {
-                  return <div className="text-center py-10 text-muted-foreground text-xs">Loading ledger...</div>;
-                }
+                    if (loadingHistory) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-60">
+                          <History className="w-12 h-12 mb-4 animate-pulse" />
+                          <p className="font-semibold text-sm">Loading ledger history...</p>
+                        </div>
+                      );
+                    }
 
-                if (filteredTimeline.length === 0) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground flex-1">
-                      <CheckCircle className="w-10 h-10 mb-2 text-primary" />
-                      <p className="text-sm font-semibold text-foreground">No records found</p>
-                      <p className="text-xs text-muted-foreground">This section is empty.</p>
-                    </div>
-                  );
-                }
+                    if (filteredTimeline.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-60">
+                          <CheckCircle className="w-12 h-12 mb-4 text-primary" />
+                          <p className="text-lg font-bold text-foreground">No records found</p>
+                          <p className="text-sm mt-1">This section is completely clear.</p>
+                        </div>
+                      );
+                    }
 
-                return (
-                  <div className="space-y-3">
-                    {filteredTimeline.map((event: any) => {
+                    return filteredTimeline.map((event: any) => {
                       if (event._type === 'utang') {
                         return (
-                          <Card key={`u-${event.utang_id}`} className="border border-border/70 bg-background shadow-xs rounded-xl overflow-hidden">
-                            <CardContent className="p-3.5">
-                              <div className="flex justify-between items-start border-b border-border/50 pb-2 mb-2">
+                          <Card key={`u-${event.utang_id}`} className="border border-border/50 bg-background shadow-sm rounded-2xl overflow-hidden hover:border-border transition-colors">
+                            <CardContent className="p-0">
+                              <div className="p-4 flex justify-between items-start bg-muted/10 border-b border-border/50">
                                 <div>
-                                  <span className="text-xs text-muted-foreground font-mono">
-                                    Sale ID #{event.sale_id}
-                                  </span>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Receipt className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm font-bold text-foreground tracking-tight">
+                                      Sale #{event.sale_id}
+                                    </span>
+                                  </div>
                                   <p className="text-xs text-muted-foreground">
                                     {new Date(event.created_at).toLocaleString()}
                                   </p>
                                 </div>
-                                <div className="text-right">
-                                  <span className="font-bold text-sm text-rose-500 dark:text-rose-400">
+                                <div className="text-right flex flex-col items-end">
+                                  <span className="font-black text-lg text-rose-500 dark:text-rose-400 leading-none mb-2">
                                     ₱{event.amount.toFixed(2)}
                                   </span>
-                                  <div className="mt-0.5">
-                                    <Badge
-                                      variant={event.status === 'Paid' ? 'secondary' : 'outline'}
-                                      className={`text-[10px] font-medium ${event.status === 'Unpaid'
-                                        ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                                        : 'border-green-500/30 text-green-600 dark:text-green-400 bg-green-500/10'
-                                        }`}
-                                    >
-                                      {event.status}
-                                    </Badge>
-                                  </div>
+                                  <Badge
+                                    variant={event.status === 'Paid' ? 'secondary' : 'outline'}
+                                    className={`text-[10px] font-bold uppercase tracking-wider ${event.status === 'Unpaid'
+                                      ? 'border-rose-500/30 text-rose-600 bg-rose-500/10'
+                                      : 'border-green-500/30 text-green-600 bg-green-500/10'
+                                      }`}
+                                  >
+                                    {event.status}
+                                  </Badge>
                                 </div>
                               </div>
 
-                              {/* Itemized List inside Sale */}
+                              {/* Itemized List */}
                               {event.sales?.sale_items && event.sales.sale_items.length > 0 && (
-                                <div className="space-y-1 bg-muted/40 p-2.5 rounded-lg text-xs border border-border/40">
-                                  <p className="text-[10px] text-muted-foreground font-semibold uppercase mb-1 flex items-center gap-1">
-                                    <Receipt className="w-3 h-3 text-primary" /> Items Purchased
+                                <div className="p-4 bg-background space-y-2 text-sm">
+                                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2">
+                                    Items Purchased
                                   </p>
                                   {event.sales.sale_items.map((item: any, index: number) => (
-                                    <div key={index} className="flex justify-between text-foreground font-medium">
-                                      <span>
-                                        {item.quantity}x {item.products?.product_name || 'Product'}
+                                    <div key={index} className="flex justify-between items-center text-foreground group">
+                                      <span className="font-medium">
+                                        <span className="text-muted-foreground mr-2 font-mono text-xs">{item.quantity}x</span>
+                                        {item.products?.product_name || 'Product'}
                                       </span>
-                                      <span>₱{item.subtotal.toFixed(2)}</span>
+                                      <span className="font-bold text-muted-foreground group-hover:text-foreground transition-colors">₱{item.subtotal.toFixed(2)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -487,73 +554,85 @@ export default function CustomerLedger(): React.JSX.Element {
                         );
                       } else {
                         return (
-                          <Card key={`p-${event.payment_id}`} className="border border-green-500/30 bg-green-500/5 shadow-xs rounded-xl overflow-hidden">
-                            <CardContent className="p-3.5">
+                          <Card key={`p-${event.payment_id}`} className="border border-green-500/30 bg-green-500/5 shadow-sm rounded-2xl overflow-hidden hover:border-green-500/50 transition-colors">
+                            <CardContent className="p-4">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <span className="text-xs text-green-600 dark:text-green-400 font-bold flex items-center gap-1">
-                                    <CheckCircle className="w-3.5 h-3.5" /> Payment Recorded
+                                  <span className="text-sm text-green-600 dark:text-green-400 font-bold flex items-center gap-2">
+                                    <div className="p-1 rounded-full bg-green-500/20">
+                                      <CheckCircle className="w-4 h-4" />
+                                    </div>
+                                    Payment Recorded
                                   </span>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  <p className="text-xs text-muted-foreground mt-2 font-medium">
                                     {new Date(event.created_at).toLocaleString()}
                                   </p>
                                 </div>
-                                <div className="text-right">
-                                  <span className="font-bold text-sm text-green-600 dark:text-green-400">
+                                <div className="text-right flex flex-col items-end">
+                                  <span className="font-black text-xl text-green-600 dark:text-green-400">
                                     +₱{event.amount_paid.toFixed(2)}
                                   </span>
                                 </div>
                               </div>
                               {event.notes && (
-                                <p className="text-xs text-muted-foreground mt-2 bg-background/50 p-2 rounded-lg border border-border/40">
-                                  Note: {event.notes}
-                                </p>
+                                <div className="mt-4 bg-background/50 p-3 rounded-xl border border-green-500/20 flex gap-2 items-start">
+                                  <span className="text-xs font-bold text-green-600 uppercase tracking-wider mt-0.5">Note</span>
+                                  <p className="text-sm text-muted-foreground font-medium flex-1">
+                                    {event.notes}
+                                  </p>
+                                </div>
                               )}
                             </CardContent>
                           </Card>
                         );
                       }
-                    })}
-                  </div>
-                );
-              })()}
-            </CardContent>
+                    });
+                  })()}
+                </div>
+              </ScrollArea>
+            </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20">
-            <User className="w-12 h-12 mb-2 text-muted-foreground/40" />
-            <p className="font-semibold text-foreground">No Customer Selected</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Choose a customer from the left list to view details.</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20 bg-muted/10">
+            <User className="w-16 h-16 mb-4 text-muted-foreground/30" />
+            <p className="text-xl font-bold text-foreground">No Customer Selected</p>
+            <p className="text-sm text-muted-foreground mt-1">Choose a customer from the directory to view details.</p>
           </div>
         )}
       </Card>
 
       {/* ================= PAYMENT DIALOG ================= */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl border-border bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">Record Utang Payment</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-6 border-b border-primary/20">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+                <DollarSign className="w-6 h-6" />
+                Record Utang Payment
+              </DialogTitle>
+            </DialogHeader>
+          </div>
 
           {selectedCustomer && (
-            <form onSubmit={handleRecordPayment} className="space-y-3 pt-2">
-              <div className="p-3 bg-muted/40 border border-border rounded-xl text-xs space-y-1">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Customer:</span>
-                  <span className="font-semibold text-foreground">
+            <form onSubmit={handleRecordPayment} className="p-6 space-y-5">
+              <div className="p-4 bg-muted/30 border border-border/50 rounded-xl text-sm space-y-3 shadow-inner">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Customer</span>
+                  <span className="font-bold text-foreground text-sm">
                     {selectedCustomer.first_name} {selectedCustomer.last_name}
                   </span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Current Debt:</span>
-                  <span className="font-bold text-rose-500 dark:text-rose-400">
+                <div className="h-px w-full bg-border/50" />
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Current Debt</span>
+                  <span className="font-black text-rose-500 dark:text-rose-400 text-lg">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Amount (₱)</Label>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Amount (₱)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -561,27 +640,93 @@ export default function CustomerLedger(): React.JSX.Element {
                   placeholder="0.00"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="text-[16px] md:text-sm font-semibold bg-background min-h-[44px] md:min-h-0"
+                  className="text-lg font-bold bg-background h-12 rounded-xl focus-visible:ring-primary/40"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Notes / Reference (Optional)</Label>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes / Reference (Optional)</Label>
                 <Input
                   placeholder="e.g. Partial cash payment"
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
-                  className="text-[16px] md:text-xs bg-background min-h-[44px] md:min-h-0"
+                  className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40"
                 />
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold cursor-pointer">
+              <DialogFooter className="pt-4 border-t border-border/50 mt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsPaymentModalOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">
                   Submit Payment
                 </Button>
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= ADD CUSTOMER DIALOG ================= */}
+      <Dialog open={isAddCustomerModalOpen} onOpenChange={setIsAddCustomerModalOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-6 border-b border-primary/20">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+                <UserPlus className="w-6 h-6" />
+                Add New Customer
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleAddCustomer} className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">First Name</Label>
+                <Input
+                  required
+                  placeholder="Juan"
+                  value={newCustomer.first_name}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, first_name: e.target.value })}
+                  className="bg-background h-11 rounded-xl focus-visible:ring-primary/40"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Last Name</Label>
+                <Input
+                  required
+                  placeholder="Dela Cruz"
+                  value={newCustomer.last_name}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, last_name: e.target.value })}
+                  className="bg-background h-11 rounded-xl focus-visible:ring-primary/40"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+              <Input
+                placeholder="09..."
+                value={newCustomer.phone_number}
+                onChange={(e) => setNewCustomer({ ...newCustomer, phone_number: e.target.value })}
+                className="bg-background h-11 rounded-xl focus-visible:ring-primary/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Credit Limit (₱)</Label>
+              <Input
+                type="number"
+                required
+                min="0"
+                step="50"
+                value={newCustomer.credit_limit}
+                onChange={(e) => setNewCustomer({ ...newCustomer, credit_limit: Number(e.target.value) })}
+                className="bg-background h-11 rounded-xl focus-visible:ring-primary/40"
+              />
+            </div>
+            <DialogFooter className="pt-4 border-t border-border/50 mt-4">
+              <Button type="button" variant="ghost" onClick={() => setIsAddCustomerModalOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">
+                Save Customer
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

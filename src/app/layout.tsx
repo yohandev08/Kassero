@@ -4,9 +4,9 @@ import '../index.css';
 import { IBM_Plex_Sans, Public_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const publicSansHeading = Public_Sans({subsets:['latin'],variable:'--font-heading'});
+const publicSansHeading = Public_Sans({ subsets: ['latin'], variable: '--font-heading' });
 
-const ibmPlexSans = IBM_Plex_Sans({subsets:['latin'],variable:'--font-sans'});
+const ibmPlexSans = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: 'Kassero — Sari-Sari Store Management',

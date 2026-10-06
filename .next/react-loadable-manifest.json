@@ -17,8 +17,8 @@
       "static/chunks/_pages-dir-browser_node_modules_next_dist_pages__error_js.js"
     ]
   },
-  "components\\CustomerLedger.tsx -> @/services/customerService": {
-    "id": "components\\CustomerLedger.tsx -> @/services/customerService",
+  "components\\CustomerLedger.tsx -> @/services/customer.Service": {
+    "id": "components\\CustomerLedger.tsx -> @/services/customer.Service",
     "files": []
   }
 }
