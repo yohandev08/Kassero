@@ -9,6 +9,7 @@ import {
   archiveProducts,
   updateStockQuantity,
 } from '@/services/product.Service';
+import { useAlert } from '@/context/AlertContext';
 import {
   Package,
   Search,
@@ -55,6 +56,8 @@ export default function InventoryManager(): React.JSX.Element {
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [loading, setLoading] = useState<boolean>(true);
 
+  const { showAlert, showConfirm } = useAlert();
+
   // Active Modals Control
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isRestockOpen, setIsRestockOpen] = useState<boolean>(false);
@@ -93,7 +96,8 @@ export default function InventoryManager(): React.JSX.Element {
     if (error) {
       console.error('Error loading inventory:', error);
     } else {
-      setProducts(data || []);
+      const physicalProducts = (data || []).filter(p => !p.product_name.startsWith('[Digital]'));
+      setProducts(physicalProducts);
     }
     setLoading(false);
   };
@@ -105,7 +109,7 @@ export default function InventoryManager(): React.JSX.Element {
 
     const qtyToAdd = parseInt(addStockQty, 10);
     if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
-      return alert('Please enter a valid stock quantity.');
+      return showAlert('Please enter a valid stock quantity.');
     }
 
     const updatedQty = selectedProduct.stock_quantity + qtyToAdd;
@@ -113,9 +117,9 @@ export default function InventoryManager(): React.JSX.Element {
     const { error } = await updateStockQuantity(selectedProduct.product_id, updatedQty);
 
     if (error) {
-      alert('Failed to restock product: ' + error.message);
+      showAlert('Failed to restock product: ' + error.message);
     } else {
-      alert(`Successfully added ${qtyToAdd} unit(s) to ${selectedProduct.product_name}!`);
+      showAlert(`Successfully added ${qtyToAdd} unit(s) to ${selectedProduct.product_name}!`);
       setIsRestockOpen(false);
       setAddStockQty('');
       fetchProducts();
@@ -135,9 +139,9 @@ export default function InventoryManager(): React.JSX.Element {
     });
 
     if (error) {
-      alert('Failed to update product: ' + error.message);
+      showAlert('Failed to update product: ' + error.message);
     } else {
-      alert('Product updated successfully!');
+      showAlert('Product updated successfully!');
       setIsEditOpen(false);
       fetchProducts();
     }
@@ -146,7 +150,7 @@ export default function InventoryManager(): React.JSX.Element {
   // 4. Create Product Handler
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategory) return alert('Please select a category.');
+    if (!newCategory) return showAlert('Please select a category.');
 
     const { error } = await addProductService({
       product_name: newName,
@@ -159,9 +163,9 @@ export default function InventoryManager(): React.JSX.Element {
     });
 
     if (error) {
-      alert('Failed to add product: ' + error.message);
+      showAlert('Failed to add product: ' + error.message);
     } else {
-      alert('New product saved to inventory!');
+      showAlert('New product saved to inventory!');
       setIsAddOpen(false);
       setNewName(''); setNewCategory(''); setNewCostPrice(''); setNewSellingPrice(''); setNewStock('');
       fetchProducts();
@@ -171,18 +175,19 @@ export default function InventoryManager(): React.JSX.Element {
   // 5. Archive Product Handler
   const handleDeleteSelected = async () => {
     if (selectedItems.size === 0) return;
-    if (!confirm(`Are you sure you want to remove ${selectedItems.size} items from inventory?`)) return;
+    
+    showConfirm(`Are you sure you want to remove ${selectedItems.size} items from inventory?`, async () => {
+      const ids = Array.from(selectedItems);
+      const { error } = await archiveProducts(ids);
 
-    const ids = Array.from(selectedItems);
-    const { error } = await archiveProducts(ids);
-
-    if (error) {
-      alert('Failed to remove: ' + error.message);
-    } else {
-      setSelectedItems(new Set());
-      setIsSelectMode(false);
-      fetchProducts();
-    }
+      if (error) {
+        showAlert('Failed to remove: ' + error.message);
+      } else {
+        setSelectedItems(new Set());
+        setIsSelectMode(false);
+        fetchProducts();
+      }
+    });
   };
 
   // Open Edit Dialog and pre-populate values

@@ -16,6 +16,7 @@ import {
 } from '@/services/customer.Service';
 import { createSale, insertSaleItems } from '@/services/sales.Service';
 import { recordUtangTransaction } from '@/services/payment.Service';
+import { useAlert } from '@/context/AlertContext';
 import {
   ShoppingCart,
   User,
@@ -61,6 +62,10 @@ export default function POS(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [isUtangMode, setIsUtangMode] = useState<boolean>(false);
+
+  const { showAlert } = useAlert();
 
   // Checkout Form State
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
@@ -122,7 +127,7 @@ export default function POS(): React.JSX.Element {
 
   const handleAddDigitalService = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!serviceAmount) return alert('Transaction amount required.');
+    if (!serviceAmount) return showAlert('Transaction amount required.');
 
     const txAmount = parseFloat(serviceAmount) || 0;
     const fee = parseFloat(convenienceFee) || 0;
@@ -136,7 +141,7 @@ export default function POS(): React.JSX.Element {
     });
 
     if (error) {
-      alert('Failed to add digital service: ' + error.message);
+      showAlert('Failed to add digital service: ' + error.message);
       return;
     }
 
@@ -180,9 +185,9 @@ export default function POS(): React.JSX.Element {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return alert('Cart is empty!');
+    if (cart.length === 0) return showAlert('Cart is empty!');
     if (paymentType === 'Utang' && !selectedCustomer) {
-      return alert('Please select a customer for Utang transactions!');
+      return showAlert('Please select a customer for Utang transactions!');
     }
 
     try {
@@ -233,7 +238,7 @@ export default function POS(): React.JSX.Element {
         }
       }
 
-      alert('Transaction completed.');
+      showAlert('Transaction completed.');
 
       // Clear cart and refresh products list to reflect new stock
       setCart([]);
@@ -242,7 +247,7 @@ export default function POS(): React.JSX.Element {
       fetchInitialData();
     } catch (err: any) {
       console.error('Checkout failed:', err);
-      alert('Error saving transaction: ' + err.message);
+      showAlert('Error saving transaction: ' + err.message);
     }
   };
 
@@ -404,78 +409,97 @@ export default function POS(): React.JSX.Element {
 
           {/* Payment Section */}
           <div className="bg-muted/10 p-5 border-t border-border/50">
-            {/* Customer Select */}
+            {/* Customer Select / Mode Toggle */}
             <div className="mb-4 space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Customer</Label>
-              <div className="relative">
+              <div className="flex justify-between items-center">
+                <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                  {isUtangMode ? 'Select Customer' : 'Customer'}
+                </Label>
                 <button
                   type="button"
-                  onClick={() => setCustomerOpen(!customerOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 border border-input rounded-xl bg-background text-sm font-medium hover:bg-accent/50 focus:ring-2 focus:ring-primary/40 transition-all shadow-sm cursor-pointer"
+                  onClick={() => {
+                    const newMode = !isUtangMode;
+                    setIsUtangMode(newMode);
+                    if (!newMode) {
+                      setSelectedCustomer('walk-in');
+                      if (paymentType === 'Utang') setPaymentType('Cash');
+                    } else {
+                      setSelectedCustomer('');
+                      setPaymentType('Utang'); // Default to Utang when switched
+                    }
+                  }}
+                  className="text-xs font-bold text-primary hover:underline cursor-pointer uppercase tracking-wider"
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span>
-                      {selectedCustomer && selectedCustomer !== 'walk-in'
-                        ? (() => {
-                          const customer = customers.find(c => c.customer_id.toString() === selectedCustomer);
-                          return customer ? `${customer.first_name} ${customer.last_name}` : 'Walk-in Customer';
-                        })()
-                        : 'Walk-in Customer'}
-                    </span>
-                  </div>
-                  <span className="text-muted-foreground text-xs">▼</span>
+                  {isUtangMode ? 'Switch to Walk-in' : 'Switch to Utang'}
                 </button>
-
-                {customerOpen && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl overflow-hidden">
-                    <div className="p-2 border-b border-border bg-muted/30">
-                      <Input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        className="h-9 bg-background border-input rounded-lg"
-                        autoFocus
-                      />
-                    </div>
-                    <ScrollArea className="h-48">
-                      <div className="p-1">
-                        <div
-                          onClick={() => {
-                            setSelectedCustomer('walk-in');
-                            setCustomerOpen(false);
-                            setCustomerSearch('');
-                          }}
-                          className={`px-3 py-2 text-sm cursor-pointer rounded-md hover:bg-accent flex items-center justify-between transition-colors ${selectedCustomer === 'walk-in' || !selectedCustomer ? 'font-bold bg-primary/10 text-primary' : ''}`}
-                        >
-                          Walk-in Customer
-                        </div>
-                        {filteredCustomers.length > 0 ? (
-                          filteredCustomers.map((customer) => (
-                            <div
-                              key={customer.customer_id}
-                              onClick={() => {
-                                setSelectedCustomer(customer.customer_id.toString());
-                                setCustomerOpen(false);
-                                setCustomerSearch('');
-                              }}
-                              className={`px-3 py-2 text-sm cursor-pointer rounded-md hover:bg-accent flex items-center justify-between transition-colors mt-1 ${selectedCustomer === customer.customer_id.toString() ? 'font-bold bg-primary/10 text-primary' : ''}`}
-                            >
-                              <span>{customer.first_name} {customer.last_name}</span>
-                              <Badge variant="outline" className="text-[10px] font-normal">₱{customer.current_balance}</Badge>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                            No customer found
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
               </div>
+
+              {!isUtangMode ? (
+                <div className="w-full flex items-center gap-2 px-3 py-2.5 border border-input rounded-xl bg-muted/30 text-sm font-medium text-foreground opacity-70">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span>Walk-in Customer</span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerOpen(!customerOpen)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 border border-input rounded-xl bg-background text-sm font-medium hover:bg-accent/50 focus:ring-2 focus:ring-primary/40 transition-all shadow-sm cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span>
+                        {selectedCustomer && selectedCustomer !== 'walk-in'
+                          ? (() => {
+                            const customer = customers.find(c => c.customer_id.toString() === selectedCustomer);
+                            return customer ? `${customer.first_name} ${customer.last_name}` : 'Select Customer...';
+                          })()
+                          : 'Select Customer...'}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground text-xs">▼</span>
+                  </button>
+
+                  {customerOpen && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl overflow-hidden">
+                      <div className="p-2 border-b border-border bg-muted/30">
+                        <Input
+                          type="text"
+                          placeholder="Search customer..."
+                          value={customerSearch}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          className="h-9 bg-background border-input rounded-lg"
+                          autoFocus
+                        />
+                      </div>
+                      <ScrollArea className="h-48">
+                        <div className="p-1">
+                          {filteredCustomers.length > 0 ? (
+                            filteredCustomers.map((customer) => (
+                              <div
+                                key={customer.customer_id}
+                                onClick={() => {
+                                  setSelectedCustomer(customer.customer_id.toString());
+                                  setCustomerOpen(false);
+                                  setCustomerSearch('');
+                                }}
+                                className={`px-3 py-2 text-sm cursor-pointer rounded-md hover:bg-accent flex items-center justify-between transition-colors mt-1 ${selectedCustomer === customer.customer_id.toString() ? 'font-bold bg-primary/10 text-primary' : ''}`}
+                              >
+                                <span>{customer.first_name} {customer.last_name}</span>
+                                <Badge variant="outline" className="text-[10px] font-normal">₱{customer.current_balance}</Badge>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                              No customer found
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Payment Tabs */}
@@ -486,7 +510,7 @@ export default function POS(): React.JSX.Element {
                   <TabsTrigger value="Cash" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Cash</TabsTrigger>
                   <TabsTrigger
                     value="Utang"
-                    disabled={!selectedCustomer || selectedCustomer === 'walk-in'}
+                    disabled={!isUtangMode || !selectedCustomer || selectedCustomer === 'walk-in'}
                     className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all disabled:opacity-30 cursor-pointer"
                   >
                     Utang
