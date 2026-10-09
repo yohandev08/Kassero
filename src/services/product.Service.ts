@@ -36,7 +36,7 @@ export async function updateProduct(
     selling_price?: number;
     reorder_level?: number;
   }
-) {
+) { 
   return supabase
     .from('products')
     .update(updates)

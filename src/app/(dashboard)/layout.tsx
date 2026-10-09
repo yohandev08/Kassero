@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex flex-col min-h-[100dvh] bg-background text-foreground pb-16 lg:pb-0">
       
       {/* TOP NAVIGATION BAR */}
-      <header className="h-14 border-b border-border/40 px-4 md:px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0 z-30">
+      <header className="sticky top-0 h-14 border-b border-border/40 px-4 md:px-6 flex items-center justify-between bg-card/40 backdrop-blur-sm shrink-0 z-30">
         <div className="flex items-center gap-2 md:gap-3">
           <button 
             onClick={() => setIsSidebarOpen(true)}

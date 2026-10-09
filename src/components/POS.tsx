@@ -314,6 +314,7 @@ export default function POS(): React.JSX.Element {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {filteredProducts.map((product) => {
                   const outOfStock = product.stock_quantity <= 0;
+                  const isLowStock = (product.stock_quantity <= (product.reorder_level ?? 5)) && !outOfStock;
                   return (
                     <Card
                       key={product.product_id}
@@ -329,10 +330,14 @@ export default function POS(): React.JSX.Element {
                             <PackagePlus className="w-5 h-5" />
                           </div>
                           <Badge
-                            variant={outOfStock ? "outline" : "secondary"}
-                            className={outOfStock ? "text-[10px]" : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 text-[10px]"}
+                            variant={outOfStock ? "outline" : isLowStock ? "outline" : "secondary"}
+                            className={outOfStock 
+                                ? "text-[10px]" 
+                                : isLowStock 
+                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] uppercase tracking-wider font-bold"
+                                  : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 text-[10px]"}
                           >
-                            {outOfStock ? 'Out of Stock' : `${product.stock_quantity} left`}
+                            {outOfStock ? 'Out of Stock' : isLowStock ? `Low Stock (${product.stock_quantity})` : `${product.stock_quantity} left`}
                           </Badge>
                         </div>
                         <div className="flex-1">
@@ -506,8 +511,8 @@ export default function POS(): React.JSX.Element {
             <div className="mb-5 space-y-2">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Payment Method</Label>
               <Tabs value={paymentType} onValueChange={(v) => setPaymentType(v as any)} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-background border border-border/50 rounded-xl">
-                  <TabsTrigger value="Cash" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Cash</TabsTrigger>
+                <TabsList className={`grid w-full h-11 p-1 bg-background border border-border/50 rounded-xl ${isUtangMode ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                  {!isUtangMode && <TabsTrigger value="Cash" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Cash</TabsTrigger>}
                   <TabsTrigger
                     value="Utang"
                     disabled={!isUtangMode || !selectedCustomer || selectedCustomer === 'walk-in'}
@@ -515,7 +520,7 @@ export default function POS(): React.JSX.Element {
                   >
                     Utang
                   </TabsTrigger>
-                  <TabsTrigger value="Digital" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Digital</TabsTrigger>
+                  {!isUtangMode && <TabsTrigger value="Digital" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Digital</TabsTrigger>}
                 </TabsList>
               </Tabs>
             </div>
