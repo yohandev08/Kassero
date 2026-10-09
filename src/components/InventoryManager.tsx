@@ -9,6 +9,7 @@ import {
   archiveProducts,
   updateStockQuantity,
 } from '@/services/product.Service';
+import { generatePurchaseOrderPDF } from '@/lib/pdfGenerator';
 import { useAlert } from '@/context/AlertContext';
 import {
   Package,
@@ -21,14 +22,15 @@ import {
   PackageCheck,
   TrendingUp,
   ArrowUpDown,
-  PackagePlus
+  PackagePlus,
+  Printer
 } from 'lucide-react';
 
 // --- shadcn/ui components ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -65,6 +67,8 @@ export default function InventoryManager(): React.JSX.Element {
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [printItems, setPrintItems] = useState<{ productId: number; qty: string; supplier?: string }[]>([]);
 
   // Form States - Restock
   const [addStockQty, setAddStockQty] = useState<string>('');
@@ -240,6 +244,17 @@ export default function InventoryManager(): React.JSX.Element {
     }
   };
 
+  const openPrintModal = () => {
+    const lowStockProducts = products.filter(p => p.stock_quantity <= (p.reorder_level ?? 5));
+    
+    setPrintItems(lowStockProducts.map(p => ({ 
+      productId: p.product_id, 
+      qty: Math.max(1, (p.reorder_level ?? 5) * 2 - p.stock_quantity).toString(),
+      supplier: '' 
+    })));
+    setShowPrintModal(true);
+  };
+
   return (
     <div className="flex flex-col lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-hidden">
       {/* HEADER & ACTIONS */}
@@ -255,6 +270,17 @@ export default function InventoryManager(): React.JSX.Element {
         </div>
 
         <div className="flex shrink-0 gap-3">
+          <Button
+            variant="outline"
+            className="rounded-xl h-11 px-4 gap-2 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+            onClick={openPrintModal}
+            disabled={isSelectMode && selectedItems.size === 0}
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {isSelectMode && selectedItems.size > 0 ? `Print Selected (${selectedItems.size})` : 'Print Restock List'}
+            </span>
+          </Button>
           <Button
             className="rounded-xl h-11 px-4 gap-2 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer"
             onClick={() => setIsAddOpen(true)}
@@ -317,7 +343,7 @@ export default function InventoryManager(): React.JSX.Element {
       </div>
 
       {/* FILTER & TABLE SECTION */}
-      <Card className="flex-1 flex flex-col overflow-hidden border-border/50 bg-background shadow-md rounded-2xl">
+      <Card className="flex-1 flex flex-col overflow-hidden border-border/50 bg-background shadow-md rounded-2xl relative">
         <CardHeader className="pb-4 border-b border-border/50 bg-muted/10">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Search Input */}
@@ -331,20 +357,38 @@ export default function InventoryManager(): React.JSX.Element {
               />
             </div>
 
-            {/* Filter Tabs */}
-            <Tabs value={filterTab} onValueChange={(val) => setFilterTab(val as FilterTab)} className="w-full lg:w-auto">
-              <TabsList className="h-11 p-1 bg-muted/50 border border-border/50 rounded-xl w-full lg:w-auto">
-                <TabsTrigger value="all" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer">
-                  All ({totalItems})
-                </TabsTrigger>
-                <TabsTrigger value="low_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-600 data-[state=active]:shadow-sm cursor-pointer">
-                  Low Stock ({lowStockCount})
-                </TabsTrigger>
-                <TabsTrigger value="out_of_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-600 data-[state=active]:shadow-sm cursor-pointer">
-                  Out of Stock ({outOfStockCount})
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Filter Tabs & Global Threshold */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
+              <Tabs value={filterTab} onValueChange={(val) => setFilterTab(val as FilterTab)} className="w-full lg:w-auto">
+                <TabsList className="h-11 p-1 bg-muted/50 border border-border/50 rounded-xl w-full lg:w-auto">
+                  <TabsTrigger value="all" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer">
+                    All ({totalItems})
+                  </TabsTrigger>
+                  <TabsTrigger value="low_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-600 data-[state=active]:shadow-sm cursor-pointer">
+                    Low Stock ({lowStockCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="out_of_stock" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-600 data-[state=active]:shadow-sm cursor-pointer">
+                    Out of Stock ({outOfStockCount})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button 
+                size="sm" 
+                variant={isSelectMode ? "destructive" : "outline"} 
+                onClick={() => {
+                  if (isSelectMode) {
+                    setIsSelectMode(false);
+                    setSelectedItems(new Set());
+                  } else {
+                    setIsSelectMode(true);
+                  }
+                }}
+                className="rounded-xl h-11 px-4 cursor-pointer"
+              >
+                {isSelectMode ? <X className="w-4 h-4 mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {isSelectMode ? 'Cancel' : 'Remove'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -368,11 +412,6 @@ export default function InventoryManager(): React.JSX.Element {
                 <Table>
                   <TableHeader className="bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
                     <TableRow className="hover:bg-transparent border-border/50">
-                      {isSelectMode && (
-                        <TableHead className="w-12 text-center px-4">
-                          <input type="checkbox" onChange={selectAllFiltered} checked={filteredProducts.length > 0 && selectedItems.size === filteredProducts.length} className="w-4 h-4 cursor-pointer rounded border-border" />
-                        </TableHead>
-                      )}
                       <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Product Name</TableHead>
                       <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Cost Price</TableHead>
                       <TableHead className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-4 py-3">Selling Price</TableHead>
@@ -389,12 +428,11 @@ export default function InventoryManager(): React.JSX.Element {
                       const isOut = product.stock_quantity === 0;
 
                       return (
-                        <TableRow key={product.product_id} className="hover:bg-muted/20 border-border/40 transition-colors group">
-                          {isSelectMode && (
-                            <TableCell className="text-center px-4 py-3">
-                              <input type="checkbox" checked={selectedItems.has(product.product_id)} onChange={() => toggleSelect(product.product_id)} className="w-4 h-4 cursor-pointer rounded border-border" />
-                            </TableCell>
-                          )}
+                        <TableRow 
+                          key={product.product_id} 
+                          onClick={() => { if (isSelectMode) toggleSelect(product.product_id); }}
+                          className={`border-border/40 transition-colors group ${isSelectMode ? 'cursor-pointer' : ''} ${isSelectMode && selectedItems.has(product.product_id) ? 'border-destructive bg-destructive/10' : 'hover:bg-muted/20'}`}
+                        >
                           <TableCell className="font-semibold text-foreground text-sm px-4 py-3">
                             {product.product_name}
                             {product.unit_type && <span className="text-[10px] text-muted-foreground ml-2 px-1.5 py-0.5 rounded bg-muted/50 font-normal uppercase tracking-wider">{product.unit_type}</span>}
@@ -451,18 +489,12 @@ export default function InventoryManager(): React.JSX.Element {
                   const isOut = product.stock_quantity === 0;
 
                   return (
-                    <Card key={product.product_id} className={`relative overflow-hidden border-border/50 shadow-sm ${isSelectMode && selectedItems.has(product.product_id) ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-500/5' : ''}`}>
-                      {isSelectMode && (
-                        <div className="absolute top-4 left-4 z-10 flex items-center justify-center">
-                          <input 
-                            type="checkbox" 
-                            checked={selectedItems.has(product.product_id)} 
-                            onChange={() => toggleSelect(product.product_id)} 
-                            className="w-6 h-6 cursor-pointer rounded border-border accent-rose-500" 
-                          />
-                        </div>
-                      )}
-                      <CardContent className={`p-4 flex flex-col gap-3 ${isSelectMode ? 'pl-14' : ''}`}>
+                    <Card 
+                      key={product.product_id} 
+                      onClick={() => { if (isSelectMode) toggleSelect(product.product_id); }}
+                      className={`relative overflow-hidden shadow-sm transition-colors ${isSelectMode ? 'cursor-pointer' : ''} ${isSelectMode && selectedItems.has(product.product_id) ? 'border-destructive bg-destructive/10' : 'border-border/50'}`}
+                    >
+                      <CardContent className="p-4 flex flex-col gap-3">
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex flex-col">
                             <h3 className="font-bold text-foreground text-base tracking-tight leading-tight">{product.product_name}</h3>
@@ -527,56 +559,29 @@ export default function InventoryManager(): React.JSX.Element {
             </>
           )}
 
-          {/* Floating action button at bottom right */}
-          <div className="sticky bottom-4 flex justify-end px-4 z-20 pointer-events-none mt-4 pb-2">
-            <div className="pointer-events-auto flex flex-col items-end gap-2">
-              {isSelectMode ? (
-                <div className="flex flex-col gap-3 bg-card/95 backdrop-blur-md border border-rose-500/40 rounded-xl p-4 shadow-xl min-w-[220px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-foreground">
-                      {selectedItems.size} selected
-                    </span>
-                    <button
-                      onClick={selectAllFiltered}
-                      className="text-xs text-primary hover:underline font-bold cursor-pointer uppercase tracking-wider"
-                    >
-                      Select All
-                    </button>
-                  </div>
-                  <div className="flex gap-2 w-full">
-                    <Button size="sm" variant="outline" className="text-xs font-bold cursor-pointer flex-1 rounded-lg" onClick={() => { setIsSelectMode(false); setSelectedItems(new Set()); }}>
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={selectedItems.size === 0}
-                      className="text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 shadow-md cursor-pointer disabled:opacity-50 flex-1 rounded-lg"
-                      onClick={handleDeleteSelected}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Delete {selectedItems.size > 0 ? `(${selectedItems.size})` : ''}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button size="icon" variant="outline"
-                  className="w-12 h-12 rounded-full cursor-pointer shadow-xl border-rose-500/30 text-rose-600 hover:bg-rose-500/10 bg-card hover:scale-105 transition-transform"
-                  onClick={() => setIsSelectMode(true)}
-                  title="Remove Items"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </Button>
-              )}
-            </div>
-          </div>
         </ScrollArea>
+
+        {isSelectMode && (
+          <CardFooter className="flex-col gap-3 pb-6 pt-4 border-t border-border/50 bg-muted/10 mt-auto">
+             <div className="flex justify-between w-full items-center">
+                <span className="text-sm font-medium">{selectedItems.size} selected</span>
+                <Button variant="ghost" size="sm" onClick={selectAllFiltered}>Select All</Button>
+             </div>
+             <div className="flex w-full gap-2">
+                <Button variant="outline" className="flex-1 rounded-xl cursor-pointer" onClick={() => { setIsSelectMode(false); setSelectedItems(new Set()); }}>Cancel</Button>
+                <Button variant="destructive" className="flex-1 rounded-xl shadow-md cursor-pointer" disabled={selectedItems.size === 0} onClick={handleDeleteSelected}>
+                  Delete {selectedItems.size > 0 ? `(${selectedItems.size})` : ''}
+                </Button>
+             </div>
+          </CardFooter>
+        )}
       </Card>
 
       {/* ================= MODALS ================= */}
 
       {/* 1. RESTOCK MODAL */}
       <Dialog open={isRestockOpen} onOpenChange={setIsRestockOpen}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+        <DialogContent showCloseButton={false} className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
           <div className="bg-primary/10 p-6 border-b border-primary/20">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
@@ -621,7 +626,7 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 2. EDIT PRODUCT MODAL */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+        <DialogContent showCloseButton={false} className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
           <div className="bg-muted p-6 border-b border-border/50">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
@@ -661,7 +666,7 @@ export default function InventoryManager(): React.JSX.Element {
 
       {/* 3. ADD NEW PRODUCT MODAL */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+        <DialogContent showCloseButton={false} className="sm:max-w-[500px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
           <div className="bg-primary/10 p-6 border-b border-primary/20">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
@@ -673,7 +678,10 @@ export default function InventoryManager(): React.JSX.Element {
           <form onSubmit={handleAddProduct} className="p-6 space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Name</Label>
-              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className={`bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40 ${newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase()) ? 'border-rose-500 ring-rose-500/20' : ''}`} />
+              {newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase()) && (
+                <p className="text-xs text-rose-500 font-semibold mt-1">Product already added.</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -737,9 +745,143 @@ export default function InventoryManager(): React.JSX.Element {
 
             <DialogFooter className="pt-4 border-t border-border/50">
               <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer">Save Product</Button>
+              <Button disabled={!!newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase())} type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Save Product</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showPrintModal} onOpenChange={setShowPrintModal}>
+        <DialogContent showCloseButton={false} className="sm:max-w-[800px] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl printable-modal">
+          {printItems.length === 0 ? (
+            <div className="p-12 text-center flex flex-col items-center gap-4 bg-background">
+              <div className="w-20 h-20 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-2">
+                <PackageCheck className="w-10 h-10" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-foreground tracking-tight">Stock is healthy!</h3>
+                <p className="text-muted-foreground mt-2 text-base">There are currently no items below their reorder level.</p>
+              </div>
+              <Button variant="outline" className="mt-6 rounded-xl font-bold px-8 h-11 border-border/50 hover:bg-accent cursor-pointer" onClick={() => setShowPrintModal(false)}>
+                Close
+              </Button>
+            </div>
+          ) : (
+            <div className="p-4 sm:p-6 md:p-8 bg-background">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-2">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Purchase Order Review</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">Review and adjust order quantities before downloading the PDF.</p>
+                </div>
+              </div>
+              
+              <div className="border border-border/50 rounded-xl overflow-hidden mb-8 hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[700px]">
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead className="font-bold">Product Name</TableHead>
+                        <TableHead className="text-center font-bold w-[100px]">Current Stock</TableHead>
+                        <TableHead className="text-center font-bold w-[120px]">Reorder Quantity</TableHead>
+                        <TableHead className="text-right font-bold w-[140px]">Unit Cost</TableHead>
+                        <TableHead className="text-right font-bold w-[140px]">Est. Total</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {printItems.map((item, index) => {
+                      const product = products.find(p => p.product_id === item.productId);
+                      if (!product) return null;
+                      
+                      const qty = parseInt(item.qty) || 0;
+                      const estTotal = qty * product.cost_price;
+                      
+                      return (
+                        <TableRow key={item.productId}>
+                          <TableCell className="font-semibold text-foreground">{product.product_name}</TableCell>
+                          <TableCell className="text-center font-medium">
+                            <span className="text-rose-500 font-bold">{product.stock_quantity}</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Input 
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => {
+                                const newItems = [...printItems];
+                                newItems[index].qty = e.target.value;
+                                setPrintItems(newItems);
+                              }}
+                              className={`h-9 text-center font-bold ${parseInt(item.qty) < 1 || isNaN(parseInt(item.qty)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ₱{product.cost_price.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            ₱{estTotal.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                </div>
+              </div>
+
+              {/* Mobile View */}
+              <div className="grid grid-cols-1 gap-3 md:hidden mb-8">
+                {printItems.map((item, index) => {
+                  const product = products.find(p => p.product_id === item.productId);
+                  if (!product) return null;
+                  const qty = parseInt(item.qty) || 0;
+                  const estTotal = qty * product.cost_price;
+                  return (
+                    <div key={item.productId} className="flex flex-col gap-2 p-4 border border-border/50 rounded-xl bg-card shadow-sm">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex flex-col">
+                          <p className="font-bold text-foreground text-sm leading-tight line-clamp-2">{product.product_name}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1 tracking-wider">
+                            <span className="text-rose-500">Stock: {product.stock_quantity}</span>
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black text-primary">₱{estTotal.toFixed(2)}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold mt-0.5">₱{product.cost_price.toFixed(2)} / ea</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 pt-3 border-t border-border/50">
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Reorder Qty:</span>
+                        <Input 
+                          type="number"
+                          min="1"
+                          value={item.qty}
+                          onChange={(e) => {
+                            const newItems = [...printItems];
+                            newItems[index].qty = e.target.value;
+                            setPrintItems(newItems);
+                          }}
+                          className={`h-10 text-center font-bold flex-1 ${parseInt(item.qty) < 1 || isNaN(parseInt(item.qty)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-4">
+                <Button variant="outline" className="w-full sm:w-auto rounded-xl font-bold cursor-pointer h-11 px-6 border-border/50" onClick={() => setShowPrintModal(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => generatePurchaseOrderPDF(printItems, products)} 
+                  disabled={printItems.some(i => parseInt(i.qty) < 1 || isNaN(parseInt(i.qty)))}
+                  className="w-full sm:w-auto rounded-xl h-11 bg-primary hover:bg-primary/90 text-white font-bold cursor-pointer px-6 shadow-md shadow-primary/20"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

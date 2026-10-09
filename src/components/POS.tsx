@@ -62,6 +62,20 @@ export default function POS(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [globalLowStockThreshold, setGlobalLowStockThreshold] = useState<number>(5);
+
+  useEffect(() => {
+    const loadThreshold = () => {
+      const saved = localStorage.getItem('globalLowStockThreshold');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 0) setGlobalLowStockThreshold(parsed);
+      }
+    };
+    loadThreshold();
+    window.addEventListener('storage', loadThreshold);
+    return () => window.removeEventListener('storage', loadThreshold);
+  }, []);
 
   const [isUtangMode, setIsUtangMode] = useState<boolean>(false);
 
@@ -314,7 +328,7 @@ export default function POS(): React.JSX.Element {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {filteredProducts.map((product) => {
                   const outOfStock = product.stock_quantity <= 0;
-                  const isLowStock = (product.stock_quantity <= (product.reorder_level ?? 5)) && !outOfStock;
+                  const isLowStock = (product.stock_quantity <= (product.reorder_level ?? globalLowStockThreshold)) && !outOfStock;
                   return (
                     <Card
                       key={product.product_id}
@@ -567,7 +581,7 @@ export default function POS(): React.JSX.Element {
 
       {/* Digital Service Modal */}
       <Dialog open={activeModal === 'digital'} onOpenChange={(open) => !open && setActiveModal('none')}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card">
+        <DialogContent showCloseButton={false} className="sm:max-w-[425px] rounded-2xl p-0 overflow-hidden border-border bg-card">
           <div className="bg-cyan-500/10 p-6 border-b border-cyan-500/20">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2 text-cyan-600">

@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", publicSans.variable, publicSansHeading.variable)}>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           <AlertProvider>
             {children}

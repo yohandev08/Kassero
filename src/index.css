@@ -144,10 +144,10 @@
 
 .dark {
     /* Facebook Theme - Dark Mode */
-    --background: oklch(0.141 0.005 285.823);
+    --background: #202124;
     --foreground: oklch(0.985 0 0);
 
-    --card: oklch(0.21 0.006 285.885);
+    --card: #292A2D;
     --card-foreground: oklch(0.985 0 0);
 
     --popover: oklch(0.21 0.006 285.885);
@@ -178,7 +178,7 @@
     --chart-4: oklch(0.508 0.118 165.612);
     --chart-5: oklch(0.432 0.095 166.913);
 
-    --sidebar: oklch(0.21 0.006 285.885);
+    --sidebar: #202124;
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.696 0.17 162.48);
     --sidebar-primary-foreground: oklch(0.262 0.051 172.552);

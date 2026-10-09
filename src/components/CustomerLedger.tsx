@@ -382,7 +382,7 @@ export default function CustomerLedger(): React.JSX.Element {
           </div>
           <CardDescription>Manage customer accounts and utang</CardDescription>
           <div className="relative mt-2">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute left-3 top-1.5 text-muted-foreground" />
             <Input
               placeholder="Search customer..."
               value={searchQuery}
@@ -393,7 +393,7 @@ export default function CustomerLedger(): React.JSX.Element {
         </CardHeader>
         <CardContent className="flex-1 p-0 overflow-hidden flex flex-col min-h-0">
           <ScrollArea className="flex-1 h-full">
-            <div className="p-4 pt-0 space-y-4">
+            <div className="p-4 pt-1 space-y-4">
               {paginatedCustomers.length === 0 ? (
                 <div className="text-center text-muted-foreground p-4">No customers found</div>
               ) : (
@@ -663,7 +663,7 @@ export default function CustomerLedger(): React.JSX.Element {
 
       {/* Add Customer Dialog */}
       <Dialog open={isAddCustomerModalOpen} onOpenChange={setIsAddCustomerModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Customer</DialogTitle>
           </DialogHeader>
