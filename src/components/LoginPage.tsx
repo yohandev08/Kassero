@@ -17,8 +17,8 @@ export default function LoginPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
     
@@ -100,7 +100,7 @@ export default function LoginPage(): React.JSX.Element {
                 type="email" 
                 placeholder="store@example.com" 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
                 className="h-12 rounded-xl bg-muted/30 focus-visible:ring-primary/40 focus-visible:bg-background transition-colors"
               />
@@ -111,7 +111,7 @@ export default function LoginPage(): React.JSX.Element {
                 id="password" 
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 required
                 className="h-12 rounded-xl bg-muted/30 focus-visible:ring-primary/40 focus-visible:bg-background transition-colors"
               />

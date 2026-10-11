@@ -4,53 +4,53 @@ import { Product } from '@/types';
 
 export interface PrintItem {
   productId: number;
-  qty: string;
+  quantity: string;
 }
 
 export const generatePurchaseOrderPDF = (printItems: PrintItem[], products: Product[]) => {
-  const doc = new jsPDF();
+  const pdfDocument = new jsPDF();
   
-  const date = new Date().toLocaleDateString();
-  const restockId = Math.floor(Date.now() / 1000).toString();
+  const currentDate = new Date().toLocaleDateString();
+  const restockSheetId = Math.floor(Date.now() / 1000).toString();
   
   // Header Text
-  doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.text('KASSERO', 14, 20);
+  pdfDocument.setFontSize(22);
+  pdfDocument.setFont('helvetica', 'bold');
+  pdfDocument.text('KASSERO', 14, 20);
   
-  doc.setFontSize(14);
-  doc.text('SHOPPING LIST / PURCHASE ORDER', 14, 30);
+  pdfDocument.setFontSize(14);
+  pdfDocument.text('SHOPPING LIST / PURCHASE ORDER', 14, 30);
   
   // Meta Info
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${date}`, 14, 40);
-  doc.text(`Printed By: Admin / Staff`, 14, 45);
-  doc.text(`Restock Sheet ID: #${restockId}`, 140, 40);
+  pdfDocument.setFontSize(10);
+  pdfDocument.setFont('helvetica', 'normal');
+  pdfDocument.text(`Date: ${currentDate}`, 14, 40);
+  pdfDocument.text(`Printed By: Admin / Staff`, 14, 45);
+  pdfDocument.text(`Restock Sheet ID: #${restockSheetId}`, 140, 40);
   
   // Table Data
   const tableData = [];
   let grandTotal = 0;
   
   for (const item of printItems) {
-    const product = products.find(p => p.product_id === item.productId);
-    if (!product) continue;
+    const foundProduct = products.find(product => product.product_id === item.productId);
+    if (!foundProduct) continue;
     
-    const qty = parseInt(item.qty) || 0;
-    const estTotal = qty * product.cost_price;
-    grandTotal += estTotal;
+    const quantity = parseInt(item.quantity) || 0;
+    const estimatedTotal = quantity * foundProduct.cost_price;
+    grandTotal += estimatedTotal;
     
     tableData.push([
-      product.product_name,
-      product.stock_quantity.toString(),
-      qty.toString(),
-      `P${product.cost_price.toFixed(2)}`,
-      `P${estTotal.toFixed(2)}`
+      foundProduct.product_name,
+      foundProduct.stock_quantity.toString(),
+      quantity.toString(),
+      `P${foundProduct.cost_price.toFixed(2)}`,
+      `P${estimatedTotal.toFixed(2)}`
     ]);
   }
   
   // Add Table
-  autoTable(doc, {
+  autoTable(pdfDocument, {
     startY: 55,
     head: [['Product Name', 'Current Stock', 'Reorder Qty', 'Unit Cost', 'Est. Total']],
     body: tableData,
@@ -72,10 +72,10 @@ export const generatePurchaseOrderPDF = (printItems: PrintItem[], products: Prod
   // Mobile browsers (especially iOS Safari and in-app webviews) often block or silently fail direct downloads.
   // Opening a Blob URL in a new tab is the most universally reliable way to present PDFs on mobile.
   if (typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    const blob = pdfDocument.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
   } else {
-    doc.save(`Kassero_Purchase_Order_${restockId}.pdf`);
+    pdfDocument.save(`Kassero_Purchase_Order_${restockSheetId}.pdf`);
   }
 };

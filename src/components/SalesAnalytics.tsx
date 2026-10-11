@@ -40,7 +40,7 @@ export default function SalesAnalytics(): React.JSX.Element {
 
   // Profit calculation = Subtotal - (Quantity * Cost Price)
   let totalProfit = 0;
-  const productSalesMap: Record<string, { qty: number; revenue: number }> = {};
+  const productSalesMap: Record<string, { quantity: number; revenue: number }> = {};
 
   sales.forEach((sale) => {
     sale.sale_items?.forEach((item) => {
@@ -49,12 +49,12 @@ export default function SalesAnalytics(): React.JSX.Element {
       totalProfit += profitFromItem;
 
       // Track top selling products
-      const pName = item.products?.product_name || 'Unknown Product';
-      if (!productSalesMap[pName]) {
-        productSalesMap[pName] = { qty: 0, revenue: 0 };
+      const productName = item.products?.product_name || 'Unknown Product';
+      if (!productSalesMap[productName]) {
+        productSalesMap[productName] = { quantity: 0, revenue: 0 };
       }
-      productSalesMap[pName].qty += item.quantity;
-      productSalesMap[pName].revenue += item.subtotal;
+      productSalesMap[productName].quantity += item.quantity;
+      productSalesMap[productName].revenue += item.subtotal;
     });
   });
 
@@ -66,11 +66,11 @@ export default function SalesAnalytics(): React.JSX.Element {
   // Sorted Top Selling Products
   const topProducts = Object.entries(productSalesMap)
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.qty - a.qty)
+    .sort((productA, productB) => productB.quantity - productA.quantity)
     .slice(0, 5);
 
   return (
-    <div className="flex flex-col lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-y-auto">
+    <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 lg:gap-6 lg:overflow-y-auto">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
@@ -173,7 +173,7 @@ export default function SalesAnalytics(): React.JSX.Element {
                       <span className="font-bold text-foreground text-sm">{product.name}</span>
                     </div>
                     <div className="flex gap-4 items-center">
-                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-primary/10 text-primary border-primary/30">{product.qty} sold</Badge>
+                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-primary/10 text-primary border-primary/30">{product.quantity} sold</Badge>
                       <span className="font-black text-foreground w-24 text-right">₱{product.revenue.toFixed(2)}</span>
                     </div>
                   </div>

@@ -68,10 +68,10 @@ export default function InventoryManager(): React.JSX.Element {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
-  const [printItems, setPrintItems] = useState<{ productId: number; qty: string; supplier?: string }[]>([]);
+  const [printItems, setPrintItems] = useState<{ productId: number; quantity: string; supplier?: string }[]>([]);
 
   // Form States - Restock
-  const [addStockQty, setAddStockQty] = useState<string>('');
+  const [addStockQuantity, setAddStockQuantity] = useState<string>('');
 
   // Form States - Edit Product
   const [editName, setEditName] = useState<string>('');
@@ -100,39 +100,39 @@ export default function InventoryManager(): React.JSX.Element {
     if (error) {
       console.error('Error loading inventory:', error);
     } else {
-      const physicalProducts = (data || []).filter(p => !p.product_name.startsWith('[Digital]'));
+      const physicalProducts = (data || []).filter(product => !product.product_name.startsWith('[Digital]'));
       setProducts(physicalProducts);
     }
     setLoading(false);
   };
 
   // 2. Restock Item Handler
-  const handleRestock = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRestock = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!selectedProduct) return;
 
-    const qtyToAdd = parseInt(addStockQty, 10);
-    if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
+    const quantityToAdd = parseInt(addStockQuantity, 10);
+    if (isNaN(quantityToAdd) || quantityToAdd <= 0) {
       return showAlert('Please enter a valid stock quantity.');
     }
 
-    const updatedQty = selectedProduct.stock_quantity + qtyToAdd;
+    const updatedQuantity = selectedProduct.stock_quantity + quantityToAdd;
 
-    const { error } = await updateStockQuantity(selectedProduct.product_id, updatedQty);
+    const { error } = await updateStockQuantity(selectedProduct.product_id, updatedQuantity);
 
     if (error) {
       showAlert('Failed to restock product: ' + error.message);
     } else {
-      showAlert(`Successfully added ${qtyToAdd} unit(s) to ${selectedProduct.product_name}!`);
+      showAlert(`Successfully added ${quantityToAdd} unit(s) to ${selectedProduct.product_name}!`);
       setIsRestockOpen(false);
-      setAddStockQty('');
+      setAddStockQuantity('');
       fetchProducts();
     }
   };
 
   // 3. Edit Product Handler
-  const handleEditProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditProduct = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!selectedProduct) return;
 
     const { error } = await updateProduct(selectedProduct.product_id, {
@@ -152,8 +152,8 @@ export default function InventoryManager(): React.JSX.Element {
   };
 
   // 4. Create Product Handler
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddProduct = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!newCategory) return showAlert('Please select a category.');
 
     const { error } = await addProductService({
@@ -195,19 +195,19 @@ export default function InventoryManager(): React.JSX.Element {
   };
 
   // Open Edit Dialog and pre-populate values
-  const openEditModal = (prod: Product) => {
-    setSelectedProduct(prod);
-    setEditName(prod.product_name);
-    setEditCostPrice(prod.cost_price.toString());
-    setEditSellingPrice(prod.selling_price.toString());
-    setEditReorderLevel((prod.reorder_level ?? 5).toString());
+  const openEditModal = (product: Product) => {
+    setSelectedProduct(product);
+    setEditName(product.product_name);
+    setEditCostPrice(product.cost_price.toString());
+    setEditSellingPrice(product.selling_price.toString());
+    setEditReorderLevel((product.reorder_level ?? 5).toString());
     setIsEditOpen(true);
   };
 
   // Open Restock Dialog
-  const openRestockModal = (prod: Product) => {
-    setSelectedProduct(prod);
-    setAddStockQty('');
+  const openRestockModal = (product: Product) => {
+    setSelectedProduct(product);
+    setAddStockQuantity('');
     setIsRestockOpen(true);
   };
 
@@ -228,11 +228,11 @@ export default function InventoryManager(): React.JSX.Element {
   });
 
   const toggleSelect = (productId: number) => {
-    setSelectedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
-      return next;
+    setSelectedItems((previousSelected) => {
+      const nextSelected = new Set(previousSelected);
+      if (nextSelected.has(productId)) nextSelected.delete(productId);
+      else nextSelected.add(productId);
+      return nextSelected;
     });
   };
 
@@ -240,23 +240,23 @@ export default function InventoryManager(): React.JSX.Element {
     if (selectedItems.size === filteredProducts.length && filteredProducts.length > 0) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(filteredProducts.map(p => p.product_id)));
+      setSelectedItems(new Set(filteredProducts.map(product => product.product_id)));
     }
   };
 
   const openPrintModal = () => {
-    const lowStockProducts = products.filter(p => p.stock_quantity <= (p.reorder_level ?? 5));
+    const lowStockProducts = products.filter(product => product.stock_quantity <= (product.reorder_level ?? 5));
     
-    setPrintItems(lowStockProducts.map(p => ({ 
-      productId: p.product_id, 
-      qty: Math.max(1, (p.reorder_level ?? 5) * 2 - p.stock_quantity).toString(),
+    setPrintItems(lowStockProducts.map(product => ({ 
+      productId: product.product_id, 
+      quantity: Math.max(1, (product.reorder_level ?? 5) * 2 - product.stock_quantity).toString(),
       supplier: '' 
     })));
     setShowPrintModal(true);
   };
 
   return (
-    <div className="flex flex-col lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-hidden">
+    <div className="w-full max-w-7xl mx-auto flex flex-col lg:h-[calc(100dvh-5.5rem)] gap-4 lg:gap-6 lg:overflow-hidden">
       {/* HEADER & ACTIONS */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-background p-4 rounded-2xl shadow-sm border border-border/50 shrink-0">
         <div className="flex items-center gap-3">
@@ -352,14 +352,14 @@ export default function InventoryManager(): React.JSX.Element {
               <Input
                 placeholder="Search products..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 className="pl-9 h-11 bg-background border-input rounded-xl focus-visible:ring-primary/40 shadow-sm"
               />
             </div>
 
             {/* Filter Tabs & Global Threshold */}
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
-              <Tabs value={filterTab} onValueChange={(val) => setFilterTab(val as FilterTab)} className="w-full lg:w-auto">
+              <Tabs value={filterTab} onValueChange={(selectedFilterTab) => setFilterTab(selectedFilterTab as FilterTab)} className="w-full lg:w-auto">
                 <TabsList className="h-11 p-1 bg-muted/50 border border-border/50 rounded-xl w-full lg:w-auto">
                   <TabsTrigger value="all" className="rounded-lg text-xs font-bold px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer">
                     All ({totalItems})
@@ -424,8 +424,8 @@ export default function InventoryManager(): React.JSX.Element {
                   <TableBody>
                     {filteredProducts.map((product) => {
                       const margin = product.selling_price - product.cost_price;
-                      const isLow = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
-                      const isOut = product.stock_quantity === 0;
+                      const isLowStock = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
+                      const isOutOfStock = product.stock_quantity === 0;
 
                       return (
                         <TableRow 
@@ -441,14 +441,14 @@ export default function InventoryManager(): React.JSX.Element {
                           <TableCell className="text-foreground font-bold px-4 py-3">₱{product.selling_price.toFixed(2)}</TableCell>
                           <TableCell className="font-bold text-green-600 dark:text-green-400 px-4 py-3">+₱{margin.toFixed(2)}</TableCell>
                           <TableCell className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${isOut ? 'bg-rose-500/10 text-rose-600' : isLow ? 'bg-amber-500/10 text-amber-600' : 'bg-secondary text-secondary-foreground'}`}>
+                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${isOutOfStock ? 'bg-rose-500/10 text-rose-600' : isLowStock ? 'bg-amber-500/10 text-amber-600' : 'bg-secondary text-secondary-foreground'}`}>
                               {product.stock_quantity}
                             </span>
                           </TableCell>
                           <TableCell className="px-4 py-3">
-                            {isOut ? (
+                            {isOutOfStock ? (
                               <Badge variant="destructive" className="text-[10px] uppercase tracking-wider font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">Out of Stock</Badge>
-                            ) : isLow ? (
+                            ) : isLowStock ? (
                               <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 text-[10px] uppercase tracking-wider font-bold">Low Stock ({product.reorder_level ?? 5})</Badge>
                             ) : (
                               <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">In Stock</Badge>
@@ -485,8 +485,8 @@ export default function InventoryManager(): React.JSX.Element {
               <div className="grid grid-cols-1 gap-4 md:hidden p-4">
                 {filteredProducts.map((product) => {
                   const margin = product.selling_price - product.cost_price;
-                  const isLow = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
-                  const isOut = product.stock_quantity === 0;
+                  const isLowStock = (product.stock_quantity <= (product.reorder_level ?? 5)) && product.stock_quantity > 0;
+                  const isOutOfStock = product.stock_quantity === 0;
 
                   return (
                     <Card 
@@ -501,9 +501,9 @@ export default function InventoryManager(): React.JSX.Element {
                             {product.unit_type && <span className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">{product.unit_type}</span>}
                           </div>
                           <div>
-                            {isOut ? (
+                            {isOutOfStock ? (
                               <Badge variant="destructive" className="text-[10px] uppercase tracking-wider font-bold bg-rose-500/15 text-rose-600 border border-rose-500/30">Out</Badge>
-                            ) : isLow ? (
+                            ) : isLowStock ? (
                               <Badge className="bg-amber-500/15 text-amber-700 border border-amber-500/30 text-[10px] uppercase tracking-wider font-bold">Low ({product.reorder_level ?? 5})</Badge>
                             ) : (
                               <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-green-500/10 text-green-600 border border-green-500/30">In Stock</Badge>
@@ -522,7 +522,7 @@ export default function InventoryManager(): React.JSX.Element {
                           </div>
                           <div className="flex flex-col border-l border-border/40 pl-3">
                             <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Stock</span>
-                            <span className={`text-sm font-black ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-primary'}`}>
+                            <span className={`text-sm font-black ${isOutOfStock ? 'text-rose-500' : isLowStock ? 'text-amber-500' : 'text-primary'}`}>
                               {product.stock_quantity}
                             </span>
                           </div>
@@ -607,8 +607,8 @@ export default function InventoryManager(): React.JSX.Element {
                   min="1"
                   required
                   placeholder="e.g. 24"
-                  value={addStockQty}
-                  onChange={(e) => setAddStockQty(e.target.value)}
+                  value={addStockQuantity}
+                  onChange={(event) => setAddStockQuantity(event.target.value)}
                   className="text-lg font-bold bg-background h-12 rounded-xl focus-visible:ring-primary/40"
                 />
               </div>
@@ -639,21 +639,21 @@ export default function InventoryManager(): React.JSX.Element {
             <form onSubmit={handleEditProduct} className="p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Name</Label>
-                <Input required value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
+                <Input required value={editName} onChange={(event) => setEditName(event.target.value)} className="bg-background h-11 rounded-xl font-medium" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cost Price (₱)</Label>
-                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
+                  <Input type="number" step="0.01" value={editCostPrice} onChange={(event) => setEditCostPrice(event.target.value)} className="bg-background h-11 rounded-xl font-medium" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Selling Price (₱)</Label>
-                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(e) => setEditSellingPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
+                  <Input type="number" step="0.01" required value={editSellingPrice} onChange={(event) => setEditSellingPrice(event.target.value)} className="bg-background h-11 rounded-xl font-medium" />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reorder Level Alert Limit</Label>
-                <Input type="number" value={editReorderLevel} onChange={(e) => setEditReorderLevel(e.target.value)} className="bg-background h-11 rounded-xl font-medium" />
+                <Input type="number" value={editReorderLevel} onChange={(event) => setEditReorderLevel(event.target.value)} className="bg-background h-11 rounded-xl font-medium" />
               </div>
               <DialogFooter className="pt-4 border-t border-border/50">
                 <Button type="button" variant="ghost" onClick={() => setIsEditOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
@@ -678,8 +678,8 @@ export default function InventoryManager(): React.JSX.Element {
           <form onSubmit={handleAddProduct} className="p-6 space-y-4">
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Name</Label>
-              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(e) => setNewName(e.target.value)} className={`bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40 ${newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase()) ? 'border-rose-500 ring-rose-500/20' : ''}`} />
-              {newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase()) && (
+              <Input required placeholder="e.g. San Miguel Light 330ml" value={newName} onChange={(event) => setNewName(event.target.value)} className={`bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40 ${newName.trim() && products.some(product => product.product_name.toLowerCase() === newName.trim().toLowerCase()) ? 'border-rose-500 ring-rose-500/20' : ''}`} />
+              {newName.trim() && products.some(product => product.product_name.toLowerCase() === newName.trim().toLowerCase()) && (
                 <p className="text-xs text-rose-500 font-semibold mt-1">Product already added.</p>
               )}
             </div>
@@ -687,7 +687,7 @@ export default function InventoryManager(): React.JSX.Element {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category <span className="text-rose-500">*</span></Label>
-                <Select required value={newCategory} onValueChange={(val) => setNewCategory(val ?? '')}>
+                <Select required value={newCategory} onValueChange={(selectedCategory) => setNewCategory(selectedCategory ?? '')}>
                   <SelectTrigger className="h-11 rounded-xl bg-background font-medium focus-visible:ring-primary/40 cursor-pointer">
                     <SelectValue placeholder="Select Category..." />
                   </SelectTrigger>
@@ -705,7 +705,7 @@ export default function InventoryManager(): React.JSX.Element {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Unit Type</Label>
-                <Select value={newUnitType} onValueChange={(val) => setNewUnitType(val ?? '')}>
+                <Select value={newUnitType} onValueChange={(selectedUnitType) => setNewUnitType(selectedUnitType ?? '')}>
                   <SelectTrigger className="h-11 rounded-xl bg-background font-medium focus-visible:ring-primary/40 cursor-pointer">
                     <SelectValue />
                   </SelectTrigger>
@@ -724,28 +724,28 @@ export default function InventoryManager(): React.JSX.Element {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cost Price (₱)</Label>
-                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+                <Input type="number" step="0.01" placeholder="45.00" value={newCostPrice} onChange={(event) => setNewCostPrice(event.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Selling Price (₱)</Label>
-                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(e) => setNewSellingPrice(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+                <Input type="number" step="0.01" required placeholder="55.00" value={newSellingPrice} onChange={(event) => setNewSellingPrice(event.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Initial Stock</Label>
-                <Input type="number" placeholder="24" value={newStock} onChange={(e) => setNewStock(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+                <Input type="number" placeholder="24" value={newStock} onChange={(event) => setNewStock(event.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reorder Level Alert</Label>
-                <Input type="number" value={newReorderLevel} onChange={(e) => setNewReorderLevel(e.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
+                <Input type="number" value={newReorderLevel} onChange={(event) => setNewReorderLevel(event.target.value)} className="bg-background h-11 rounded-xl font-medium focus-visible:ring-primary/40" />
               </div>
             </div>
 
             <DialogFooter className="pt-4 border-t border-border/50">
               <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl font-semibold cursor-pointer">Cancel</Button>
-              <Button disabled={!!newName.trim() && products.some(p => p.product_name.toLowerCase() === newName.trim().toLowerCase())} type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Save Product</Button>
+              <Button disabled={!!newName.trim() && products.some(product => product.product_name.toLowerCase() === newName.trim().toLowerCase())} type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Save Product</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -788,11 +788,11 @@ export default function InventoryManager(): React.JSX.Element {
                   </TableHeader>
                   <TableBody>
                     {printItems.map((item, index) => {
-                      const product = products.find(p => p.product_id === item.productId);
+                      const product = products.find(product => product.product_id === item.productId);
                       if (!product) return null;
                       
-                      const qty = parseInt(item.qty) || 0;
-                      const estTotal = qty * product.cost_price;
+                      const quantity = parseInt(item.quantity) || 0;
+                      const estimatedTotal = quantity * product.cost_price;
                       
                       return (
                         <TableRow key={item.productId}>
@@ -804,20 +804,20 @@ export default function InventoryManager(): React.JSX.Element {
                             <Input 
                               type="number"
                               min="1"
-                              value={item.qty}
-                              onChange={(e) => {
+                              value={item.quantity}
+                              onChange={(event) => {
                                 const newItems = [...printItems];
-                                newItems[index].qty = e.target.value;
+                                newItems[index].quantity = event.target.value;
                                 setPrintItems(newItems);
                               }}
-                              className={`h-9 text-center font-bold ${parseInt(item.qty) < 1 || isNaN(parseInt(item.qty)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
+                              className={`h-9 text-center font-bold ${parseInt(item.quantity) < 1 || isNaN(parseInt(item.quantity)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             ₱{product.cost_price.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right font-bold">
-                            ₱{estTotal.toFixed(2)}
+                            ₱{estimatedTotal.toFixed(2)}
                           </TableCell>
                         </TableRow>
                       );
@@ -830,10 +830,10 @@ export default function InventoryManager(): React.JSX.Element {
               {/* Mobile View */}
               <div className="grid grid-cols-1 gap-3 md:hidden mb-8">
                 {printItems.map((item, index) => {
-                  const product = products.find(p => p.product_id === item.productId);
+                  const product = products.find(product => product.product_id === item.productId);
                   if (!product) return null;
-                  const qty = parseInt(item.qty) || 0;
-                  const estTotal = qty * product.cost_price;
+                  const quantity = parseInt(item.quantity) || 0;
+                  const estimatedTotal = quantity * product.cost_price;
                   return (
                     <div key={item.productId} className="flex flex-col gap-2 p-4 border border-border/50 rounded-xl bg-card shadow-sm">
                       <div className="flex justify-between items-start gap-2">
@@ -844,7 +844,7 @@ export default function InventoryManager(): React.JSX.Element {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-primary">₱{estTotal.toFixed(2)}</p>
+                          <p className="text-sm font-black text-primary">₱{estimatedTotal.toFixed(2)}</p>
                           <p className="text-[10px] text-muted-foreground uppercase font-semibold mt-0.5">₱{product.cost_price.toFixed(2)} / ea</p>
                         </div>
                       </div>
@@ -853,13 +853,13 @@ export default function InventoryManager(): React.JSX.Element {
                         <Input 
                           type="number"
                           min="1"
-                          value={item.qty}
-                          onChange={(e) => {
+                          value={item.quantity}
+                          onChange={(event) => {
                             const newItems = [...printItems];
-                            newItems[index].qty = e.target.value;
+                            newItems[index].quantity = event.target.value;
                             setPrintItems(newItems);
                           }}
-                          className={`h-10 text-center font-bold flex-1 ${parseInt(item.qty) < 1 || isNaN(parseInt(item.qty)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
+                          className={`h-10 text-center font-bold flex-1 ${parseInt(item.quantity) < 1 || isNaN(parseInt(item.quantity)) ? 'border-rose-500 ring-rose-500/20' : ''}`}
                         />
                       </div>
                     </div>
@@ -873,7 +873,7 @@ export default function InventoryManager(): React.JSX.Element {
                 </Button>
                 <Button 
                   onClick={() => generatePurchaseOrderPDF(printItems, products)} 
-                  disabled={printItems.some(i => parseInt(i.qty) < 1 || isNaN(parseInt(i.qty)))}
+                  disabled={printItems.some(item => parseInt(item.quantity) < 1 || isNaN(parseInt(item.quantity)))}
                   className="w-full sm:w-auto rounded-xl h-11 bg-primary hover:bg-primary/90 text-white font-bold cursor-pointer px-6 shadow-md shadow-primary/20"
                 >
                   <Printer className="w-4 h-4 mr-2" />

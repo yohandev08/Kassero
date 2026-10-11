@@ -98,7 +98,7 @@ export default function POS(): React.JSX.Element {
   const [serviceAccount, setServiceAccount] = useState<string>('');
   const [serviceAmount, setServiceAmount] = useState<string>('');
   const [convenienceFee, setConvenienceFee] = useState<string>('10');
-  const [refNumber, setRefNumber] = useState<string>('');
+  const [referenceNumber, setReferenceNumber] = useState<string>('');
 
 
   // Customer Search Popover
@@ -114,13 +114,13 @@ export default function POS(): React.JSX.Element {
 
   const fetchInitialData = async () => {
     // Fetch Products (via service)
-    const { data: productData, error: prodErr } = await fetchProductsService();
-    if (prodErr) console.error('Error loading products:', prodErr);
+    const { data: productData, error: productError } = await fetchProductsService();
+    if (productError) console.error('Error loading products:', productError);
     else setProducts(productData || []);
 
     // Fetch Customers (via service)
-    const { data: customerData, error: custErr } = await fetchCustomersService();
-    if (custErr) console.error('Error loading customers:', custErr);
+    const { data: customerData, error: customerError } = await fetchCustomersService();
+    if (customerError) console.error('Error loading customers:', customerError);
     else setCustomers(customerData || []);
   };
 
@@ -139,17 +139,17 @@ export default function POS(): React.JSX.Element {
 
 
 
-  const handleAddDigitalService = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
+  const handleAddDigitalService = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
     if (!serviceAmount) return showAlert('Transaction amount required.');
 
-    const txAmount = parseFloat(serviceAmount) || 0;
+    const transactionAmount = parseFloat(serviceAmount) || 0;
     const fee = parseFloat(convenienceFee) || 0;
-    const totalServiceCost = txAmount + fee;
+    const totalServiceCost = transactionAmount + fee;
 
     const { data, error } = await addDigitalService({
       product_name: `[Digital] ${serviceType} - ${serviceAccount || 'No Ref'}`,
-      cost_price: txAmount,
+      cost_price: transactionAmount,
       selling_price: totalServiceCost,
       stock_quantity: 999,
     });
@@ -160,36 +160,34 @@ export default function POS(): React.JSX.Element {
     }
 
     addToCart(data);
-    setServiceAccount(''); setServiceAmount(''); setRefNumber('');
-    setActiveModal('none')
-
+    setServiceAccount(''); setServiceAmount(''); setReferenceNumber('');
+    setActiveModal('none');
   };
 
 
 
   const addToCart = (product: Product): void => {
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.product_id === product.product_id);
+    setCart((previousCart) => {
+      const existing = previousCart.find((item) => item.product_id === product.product_id);
       if (existing) {
-        return prevCart.map((item) =>
+        return previousCart.map((item) =>
           item.product_id === product.product_id
             ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.selling_price }
             : item
         );
       }
-      return [...prevCart, { ...product, quantity: 1, subtotal: product.selling_price }];
+      return [...previousCart, { ...product, quantity: 1, subtotal: product.selling_price }];
     });
   };
 
   const updateQuantity = (productId: number, delta: number): void => {
-    setCart((prevCart) =>
-      prevCart
+    setCart((previousCart) =>
+      previousCart
         .map((item) => {
-
           if (item.product_id === productId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0
-              ? { ...item, quantity: newQty, subtotal: newQty * item.selling_price }
+            const newQuantity = item.quantity + delta;
+            return newQuantity > 0
+              ? { ...item, quantity: newQuantity, subtotal: newQuantity * item.selling_price }
               : null;
           }
           return item;
@@ -206,7 +204,7 @@ export default function POS(): React.JSX.Element {
 
     try {
       // 1. Insert into SALES table (via service)
-      const { data: sale, error: saleErr } = await createSale({
+      const { data: sale, error: saleError } = await createSale({
         customer_id: selectedCustomer ? parseInt(selectedCustomer, 10) : null,
         total_amount: totalAmount,
         payment_type: paymentType,
@@ -214,7 +212,7 @@ export default function POS(): React.JSX.Element {
         change_given: paymentType === 'Cash' ? changeGiven : 0,
       });
 
-      if (saleErr) throw saleErr;
+      if (saleError) throw saleError;
 
       // 2. Prepare & Insert SALE_ITEMS (via service)
       const saleItems = cart.map((item) => ({
@@ -225,8 +223,8 @@ export default function POS(): React.JSX.Element {
         subtotal: item.subtotal,
       }));
 
-      const { error: itemsErr } = await insertSaleItems(saleItems);
-      if (itemsErr) throw itemsErr;
+      const { error: itemsError } = await insertSaleItems(saleItems);
+      if (itemsError) throw itemsError;
 
       // 3. Deduct Stock Quantity for Each Product (via service)
       for (const item of cart) {
@@ -246,9 +244,9 @@ export default function POS(): React.JSX.Element {
         });
 
         // Get current customer balance & update
-        const currentCust = customers.find((customer) => customer.customer_id === customerIdInt);
-        if (currentCust) {
-          await updateCustomerBalance(customerIdInt, (currentCust.current_balance || 0) + totalAmount);
+        const currentCustomer = customers.find((customer) => customer.customer_id === customerIdInt);
+        if (currentCustomer) {
+          await updateCustomerBalance(customerIdInt, (currentCustomer.current_balance || 0) + totalAmount);
         }
       }
 
@@ -259,9 +257,9 @@ export default function POS(): React.JSX.Element {
       setAmountTendered('');
       setSelectedCustomer('');
       fetchInitialData();
-    } catch (err: any) {
-      console.error('Checkout failed:', err);
-      showAlert('Error saving transaction: ' + err.message);
+    } catch (error: any) {
+      console.error('Checkout failed:', error);
+      showAlert('Error saving transaction: ' + error.message);
     }
   };
 
@@ -272,7 +270,7 @@ export default function POS(): React.JSX.Element {
   });
 
   return (
-    <div className="flex flex-col lg:flex-row lg:h-full gap-6 p-4 lg:p-6 bg-muted/30 lg:overflow-hidden">
+    <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row lg:h-[calc(100dvh-5.5rem)] gap-4 lg:gap-6 lg:overflow-hidden">
       {/* LEFT: Product Catalog */}
       <div className="flex-1 flex flex-col gap-4 overflow-hidden">
         {/* Header / Search / Actions */}
@@ -293,7 +291,7 @@ export default function POS(): React.JSX.Element {
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 className="pl-10 rounded-xl bg-muted/50 border-none focus-visible:ring-primary/30 h-11"
               />
               <svg className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -410,13 +408,13 @@ export default function POS(): React.JSX.Element {
                     </div>
                     <div className="flex flex-col items-end justify-between">
                       <p className="font-bold text-sm">₱{item.subtotal.toFixed(2)}</p>
-                      <div className="flex items-center gap-2 bg-muted/50 rounded-md p-0.5 border border-border/50 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <button type="button" onClick={() => updateQuantity(item.product_id, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-background rounded shadow-sm text-foreground cursor-pointer">
-                          <Minus className="w-3 h-3" />
+                      <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border/50">
+                        <button type="button" onClick={() => updateQuantity(item.product_id, -1)} className="w-8 h-8 flex items-center justify-center hover:bg-background active:bg-background rounded-md shadow-xs text-foreground cursor-pointer">
+                          <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="w-4 text-center text-xs font-bold">{item.quantity}</span>
-                        <button type="button" onClick={() => updateQuantity(item.product_id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-background rounded shadow-sm text-foreground cursor-pointer">
-                          <Plus className="w-3 h-3" />
+                        <span className="w-5 text-center text-xs font-bold">{item.quantity}</span>
+                        <button type="button" onClick={() => updateQuantity(item.product_id, 1)} className="w-8 h-8 flex items-center justify-center hover:bg-background active:bg-background rounded-md shadow-xs text-foreground cursor-pointer">
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -470,7 +468,7 @@ export default function POS(): React.JSX.Element {
                       <span>
                         {selectedCustomer && selectedCustomer !== 'walk-in'
                           ? (() => {
-                            const customer = customers.find(c => c.customer_id.toString() === selectedCustomer);
+                            const customer = customers.find(customer => customer.customer_id.toString() === selectedCustomer);
                             return customer ? `${customer.first_name} ${customer.last_name}` : 'Select Customer...';
                           })()
                           : 'Select Customer...'}
@@ -486,7 +484,7 @@ export default function POS(): React.JSX.Element {
                           type="text"
                           placeholder="Search customer..."
                           value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          onChange={(event) => setCustomerSearch(event.target.value)}
                           className="h-9 bg-background border-input rounded-lg"
                           autoFocus
                         />
@@ -524,7 +522,7 @@ export default function POS(): React.JSX.Element {
             {/* Payment Tabs */}
             <div className="mb-5 space-y-2">
               <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Payment Method</Label>
-              <Tabs value={paymentType} onValueChange={(v) => setPaymentType(v as any)} className="w-full">
+              <Tabs value={paymentType} onValueChange={(value) => setPaymentType(value as any)} className="w-full">
                 <TabsList className={`grid w-full h-11 p-1 bg-background border border-border/50 rounded-xl ${isUtangMode ? 'grid-cols-1' : 'grid-cols-3'}`}>
                   {!isUtangMode && <TabsTrigger value="Cash" className="rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all cursor-pointer">Cash</TabsTrigger>}
                   <TabsTrigger
@@ -552,7 +550,7 @@ export default function POS(): React.JSX.Element {
                     type="number"
                     placeholder="0.00"
                     value={amountTendered}
-                    onChange={(e) => setAmountTendered(e.target.value)}
+                    onChange={(event) => setAmountTendered(event.target.value)}
                     className="pl-8 text-lg font-semibold h-12 bg-background rounded-xl border-input shadow-sm focus-visible:ring-primary/40"
                   />
                 </div>
@@ -593,7 +591,7 @@ export default function POS(): React.JSX.Element {
           <form onSubmit={handleAddDigitalService} className="p-6 space-y-5">
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Service Type</Label>
-              <Select value={serviceType} onValueChange={(val) => setServiceType(val ?? '')}>
+              <Select value={serviceType} onValueChange={(value) => setServiceType(value ?? '')}>
                 <SelectTrigger className="h-11 rounded-xl bg-background cursor-pointer">
                   <SelectValue />
                 </SelectTrigger>
@@ -606,25 +604,25 @@ export default function POS(): React.JSX.Element {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Account / Mobile Number</Label>
-              <Input placeholder="09170000000" value={serviceAccount} onChange={(e) => setServiceAccount(e.target.value)} className="h-11 rounded-xl bg-background" />
+              <Input placeholder="09170000000" value={serviceAccount} onChange={(event) => setServiceAccount(event.target.value)} className="h-11 rounded-xl bg-background" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Amount (₱)</Label>
-                <Input type="number" required placeholder="0.00" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} className="h-11 rounded-xl bg-background" />
+                <Input type="number" required placeholder="0.00" value={serviceAmount} onChange={(event) => setServiceAmount(event.target.value)} className="h-11 rounded-xl bg-background" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Fee (₱)</Label>
-                <Input type="number" value={convenienceFee} onChange={(e) => setConvenienceFee(e.target.value)} className="h-11 rounded-xl bg-background" />
+                <Input type="number" value={convenienceFee} onChange={(event) => setConvenienceFee(event.target.value)} className="h-11 rounded-xl bg-background" />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Reference No.</Label>
-              <Input placeholder="Optional" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} className="h-11 rounded-xl bg-background" />
+              <Input placeholder="Optional" value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} className="h-11 rounded-xl bg-background" />
             </div>
-            <DialogFooter className="pt-4 border-t border-border/50">
-              <Button type="button" variant="ghost" onClick={() => setActiveModal('none')} className="rounded-xl cursor-pointer">Cancel</Button>
-              <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl px-6 shadow-md shadow-cyan-600/20 cursor-pointer">Add to Order</Button>
+            <DialogFooter className="pt-4 border-t border-border/50 gap-2 sm:gap-0">
+              <Button type="button" variant="ghost" onClick={() => setActiveModal('none')} className="h-11 min-h-[44px] rounded-xl cursor-pointer">Cancel</Button>
+              <Button type="submit" className="h-11 min-h-[44px] bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl px-6 shadow-md shadow-cyan-600/20 cursor-pointer">Add to Order</Button>
             </DialogFooter>
           </form>
         </DialogContent>

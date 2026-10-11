@@ -10,21 +10,59 @@ import { buttonVariants, Button } from '@/components/ui/button';
 import { cn } from 'cn';
 import { supabase } from '@/lib/supabase';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
-  }, []);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setIsAuthenticated(false);
+        router.push('/');
+      } else {
+        setIsAuthenticated(true);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setIsAuthenticated(false);
+        router.push('/');
+      } else {
+        setIsAuthenticated(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/');
   };
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-foreground gap-3 select-none">
+        <div className="bg-primary/10 p-3 rounded-2xl text-primary animate-pulse">
+          <Store className="w-8 h-8" />
+        </div>
+        <p className="text-xs font-semibold text-muted-foreground animate-pulse">Verifying secure session...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <></>;
+  }
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-background text-foreground pb-16 lg:pb-0">
