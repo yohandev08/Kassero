@@ -58,11 +58,19 @@ export function AlertProvider({ children }: { children: ReactNode }) {
               {options.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2 sm:gap-3">
             {options.showCancel && (
-              <AlertDialogCancel onClick={() => setOpen(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel
+                onClick={() => setOpen(false)}
+                className="rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer"
+              >
+                Cancel
+              </AlertDialogCancel>
             )}
-            <AlertDialogAction onClick={handleConfirm}>
+            <AlertDialogAction
+              onClick={handleConfirm}
+              className="rounded-xl bg-primary hover:bg-primary/90 text-white font-bold shadow-md shadow-primary/20 cursor-pointer"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -17,6 +17,7 @@ import {
 import { createSale, insertSaleItems } from '@/services/sales.Service';
 import { recordUtangTransaction } from '@/services/payment.Service';
 import { useAlert } from '@/context/AlertContext';
+import { cn } from '@/lib/utils';
 import {
   ShoppingCart,
   User,
@@ -85,6 +86,7 @@ export default function POS(): React.JSX.Element {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'Cash' | 'Utang' | 'Digital'>('Cash');
   const [amountTendered, setAmountTendered] = useState<string>('');
+  const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
 
   // Active Modal Control
   const [activeModal, setActiveModal] = useState<ModalType>('none');
@@ -126,7 +128,20 @@ export default function POS(): React.JSX.Element {
 
   // --- Derived Calculations ---
   const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
-  const changeGiven = amountTendered ? Math.max(0, parseFloat(amountTendered) - totalAmount) : 0;
+  const tenderedNumber = parseFloat(amountTendered);
+  const isTenderedValid = !isNaN(tenderedNumber) && tenderedNumber >= totalAmount;
+  const changeGiven =
+    paymentType === 'Cash' && amountTendered && isTenderedValid
+      ? Math.max(0, tenderedNumber - totalAmount)
+      : 0;
+
+  const isCashInvalid =
+    paymentType === 'Cash' &&
+    (!amountTendered.trim() || isNaN(tenderedNumber) || tenderedNumber < totalAmount);
+  const isUtangInvalid =
+    paymentType === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in');
+  const isCheckoutDisabled = cart.length === 0 || isCashInvalid || isUtangInvalid || isCheckingOut;
+
   const realProducts = products.filter((product) => !product.product_name.startsWith('[Digital]'));
   const filteredProducts = products.filter(
     (product) =>
@@ -167,25 +182,54 @@ export default function POS(): React.JSX.Element {
 
 
   const addToCart = (product: Product): void => {
+    const currentStock = products.find((p) => p.product_id === product.product_id)?.stock_quantity ?? product.stock_quantity;
+
+    if (currentStock <= 0) {
+      showAlert(`${product.product_name} is out of stock!`);
+      return;
+    }
+
+    const existingInCart = cart.find((item) => item.product_id === product.product_id);
+    if (existingInCart && existingInCart.quantity >= currentStock) {
+      showAlert(`Cannot add more. Only ${currentStock} in stock for "${product.product_name}".`);
+      return;
+    }
+
     setCart((previousCart) => {
       const existing = previousCart.find((item) => item.product_id === product.product_id);
       if (existing) {
+        if (existing.quantity >= currentStock) {
+          return previousCart;
+        }
         return previousCart.map((item) =>
           item.product_id === product.product_id
             ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.selling_price }
             : item
         );
       }
-      return [...previousCart, { ...product, quantity: 1, subtotal: product.selling_price }];
+      return [...previousCart, { ...product, stock_quantity: currentStock, quantity: 1, subtotal: product.selling_price }];
     });
   };
 
   const updateQuantity = (productId: number, delta: number): void => {
+    const targetItem = cart.find((item) => item.product_id === productId);
+    if (!targetItem) return;
+
+    const currentStock = products.find((p) => p.product_id === productId)?.stock_quantity ?? targetItem.stock_quantity;
+
+    if (delta > 0 && targetItem.quantity >= currentStock) {
+      showAlert(`Cannot add more. Only ${currentStock} in stock for "${targetItem.product_name}".`);
+      return;
+    }
+
     setCart((previousCart) =>
       previousCart
         .map((item) => {
           if (item.product_id === productId) {
-            const newQuantity = item.quantity + delta;
+            let newQuantity = item.quantity + delta;
+            if (delta > 0 && newQuantity > currentStock) {
+              newQuantity = currentStock;
+            }
             return newQuantity > 0
               ? { ...item, quantity: newQuantity, subtotal: newQuantity * item.selling_price }
               : null;
@@ -196,20 +240,80 @@ export default function POS(): React.JSX.Element {
     );
   };
 
+  const removeFromCart = (productId: number): void => {
+    setCart((previousCart) => previousCart.filter((item) => item.product_id !== productId));
+  };
+
+  const handleSetQuantity = (productId: number, targetQty: number): void => {
+    const targetItem = cart.find((item) => item.product_id === productId);
+    if (!targetItem) return;
+
+    const currentStock =
+      products.find((p) => p.product_id === productId)?.stock_quantity ?? targetItem.stock_quantity;
+
+    let finalQty = targetQty;
+    if (finalQty > currentStock) {
+      finalQty = currentStock;
+    }
+
+    setCart((previousCart) =>
+      previousCart.map((item) => {
+        if (item.product_id === productId) {
+          const qty = Math.max(0, finalQty);
+          return {
+            ...item,
+            quantity: qty,
+            subtotal: qty * item.selling_price,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
   const handleCheckout = async () => {
     if (cart.length === 0) return showAlert('Cart is empty!');
-    if (paymentType === 'Utang' && !selectedCustomer) {
+
+    // Validate that cart items do not exceed available stock
+    for (const item of cart) {
+      if (item.quantity <= 0) {
+        return showAlert(`Please enter a valid quantity for "${item.product_name}".`);
+      }
+      const currentStock = products.find((p) => p.product_id === item.product_id)?.stock_quantity ?? item.stock_quantity;
+      if (item.quantity > currentStock) {
+        return showAlert(`Cannot checkout: "${item.product_name}" quantity (${item.quantity}) exceeds available stock (${currentStock}).`);
+      }
+    }
+
+    if (paymentType === 'Cash') {
+      if (!amountTendered.trim()) {
+        return showAlert('Please enter the amount tendered.');
+      }
+      const tendered = parseFloat(amountTendered);
+      if (isNaN(tendered) || tendered <= 0) {
+        return showAlert('Please enter a valid amount tendered.');
+      }
+      if (tendered < totalAmount) {
+        return showAlert(`Amount tendered (₱${tendered.toFixed(2)}) is less than total amount (₱${totalAmount.toFixed(2)}).`);
+      }
+    }
+
+    if (paymentType === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in')) {
       return showAlert('Please select a customer for Utang transactions!');
     }
 
+    setIsCheckingOut(true);
     try {
+      const finalTendered = paymentType === 'Cash' ? parseFloat(amountTendered) : totalAmount;
+      const finalChange = paymentType === 'Cash' ? Math.max(0, finalTendered - totalAmount) : 0;
+
       // 1. Insert into SALES table (via service)
       const { data: sale, error: saleError } = await createSale({
-        customer_id: selectedCustomer ? parseInt(selectedCustomer, 10) : null,
+        customer_id: selectedCustomer && selectedCustomer !== 'walk-in' ? parseInt(selectedCustomer, 10) : null,
         total_amount: totalAmount,
         payment_type: paymentType,
-        amount_tendered: paymentType === 'Cash' ? parseFloat(amountTendered) || totalAmount : totalAmount,
-        change_given: paymentType === 'Cash' ? changeGiven : 0,
+        amount_tendered: finalTendered,
+        change_given: finalChange,
       });
 
       if (saleError) throw saleError;
@@ -228,7 +332,9 @@ export default function POS(): React.JSX.Element {
 
       // 3. Deduct Stock Quantity for Each Product (via service)
       for (const item of cart) {
-        await updateStockQuantity(item.product_id, item.stock_quantity - item.quantity);
+        const prod = products.find((p) => p.product_id === item.product_id);
+        const currentStock = prod ? prod.stock_quantity : item.stock_quantity;
+        await updateStockQuantity(item.product_id, Math.max(0, currentStock - item.quantity));
       }
 
       // 4. Handle Utang Recording if payment is Utang (via service)
@@ -260,6 +366,8 @@ export default function POS(): React.JSX.Element {
     } catch (error: any) {
       console.error('Checkout failed:', error);
       showAlert('Error saving transaction: ' + error.message);
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -270,9 +378,9 @@ export default function POS(): React.JSX.Element {
   });
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row lg:h-[calc(100dvh-5.5rem)] gap-4 lg:gap-6 lg:overflow-hidden">
+    <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row lg:h-[calc(100dvh-5.5rem)] gap-4 lg:gap-6 lg:overflow-hidden p-1">
       {/* LEFT: Product Catalog */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden pb-1">
         {/* Header / Search / Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-background p-4 rounded-2xl shadow-sm border border-border/50">
           <div className="flex items-center gap-3">
@@ -326,40 +434,44 @@ export default function POS(): React.JSX.Element {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {filteredProducts.map((product) => {
                   const outOfStock = product.stock_quantity <= 0;
+                  const itemInCart = cart.find((item) => item.product_id === product.product_id);
+                  const isMaxInCart = itemInCart ? itemInCart.quantity >= product.stock_quantity : false;
                   const isLowStock = (product.stock_quantity <= (product.reorder_level ?? globalLowStockThreshold)) && !outOfStock;
                   return (
                     <Card
                       key={product.product_id}
-                      onClick={() => !outOfStock && addToCart(product)}
-                      className={`group overflow-hidden flex flex-col justify-between border-border/40 transition-all duration-300 ease-in-out cursor-pointer h-full ${outOfStock
+                      onClick={() => !outOfStock && !isMaxInCart && addToCart(product)}
+                      className={`group overflow-hidden flex flex-col justify-between border-border/40 transition-all duration-300 ease-in-out cursor-pointer h-full ${outOfStock || isMaxInCart
                         ? 'opacity-50 grayscale bg-muted/30 cursor-not-allowed'
                         : 'hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:bg-muted/20 bg-background'
                         }`}
                     >
                       <CardContent className="p-4 flex flex-col h-full">
                         <div className="flex justify-between items-start mb-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${outOfStock ? 'bg-muted' : 'bg-primary/10 text-primary'}`}>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${outOfStock || isMaxInCart ? 'bg-muted' : 'bg-primary/10 text-primary'}`}>
                             <PackagePlus className="w-5 h-5" />
                           </div>
                           <Badge
-                            variant={outOfStock ? "outline" : isLowStock ? "outline" : "secondary"}
+                            variant={outOfStock ? "outline" : isMaxInCart ? "outline" : isLowStock ? "outline" : "secondary"}
                             className={outOfStock 
                                 ? "text-[10px]" 
-                                : isLowStock 
-                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] uppercase tracking-wider font-bold"
-                                  : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 text-[10px]"}
+                                : isMaxInCart
+                                  ? "bg-muted text-muted-foreground border-border text-[10px]"
+                                  : isLowStock 
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] uppercase tracking-wider font-bold"
+                                    : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 text-[10px]"}
                           >
-                            {outOfStock ? 'Out of Stock' : isLowStock ? `Low Stock (${product.stock_quantity})` : `${product.stock_quantity} left`}
+                            {outOfStock ? 'Out of Stock' : isMaxInCart ? 'Max in Cart' : isLowStock ? `Low Stock (${product.stock_quantity})` : `${product.stock_quantity} left`}
                           </Badge>
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sm leading-tight mb-1 group-hover:text-primary transition-colors">{product.product_name}</h4>
+                          <h4 className="font-semibold text-sm leading-tight mb-1 transition-colors">{product.product_name}</h4>
                         </div>
                         <div className="mt-4 flex items-end justify-between">
                           <div className="text-lg font-bold tracking-tight">
                             ₱{product.selling_price.toFixed(2)}
                           </div>
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${outOfStock ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground md:opacity-0 md:group-hover:opacity-100'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${outOfStock || isMaxInCart ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground md:opacity-0 md:group-hover:opacity-100'}`}>
                             <Plus className="w-4 h-4" />
                           </div>
                         </div>
@@ -374,7 +486,7 @@ export default function POS(): React.JSX.Element {
       </div>
 
       {/* RIGHT: Cart / Checkout Panel */}
-      <div className="w-full lg:w-[400px] xl:w-[450px] flex flex-col shrink-0 gap-4">
+      <div className="w-full lg:w-[400px] xl:w-[450px] flex flex-col shrink-0 gap-4 pt-1 pb-1">
         <Card className="flex-1 flex flex-col border-border/50 shadow-md bg-background overflow-hidden rounded-2xl">
           <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
             <div className="flex justify-between items-center">
@@ -397,29 +509,96 @@ export default function POS(): React.JSX.Element {
               </div>
             ) : (
               <div className="p-4 space-y-4">
-                {cart.map((item) => (
-                  <div key={item.product_id} className="flex gap-3 group">
+                {cart.map((item) => {
+                  const currentStock = products.find((p) => p.product_id === item.product_id)?.stock_quantity ?? item.stock_quantity;
+                  const isMaxStock = item.quantity >= currentStock;
+
+                  return (
+                    <div key={item.product_id} className="flex items-center gap-3 group">
                     <div className="w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-                      {item.product_name.startsWith('[Digital]') ? <Smartphone className="w-6 h-6 text-cyan-600" /> : <PackagePlus className="w-6 h-6 text-primary" />}
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center min-w-0">
-                      <p className="font-semibold text-sm truncate text-foreground">{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground">₱{item.selling_price.toFixed(2)}</p>
-                    </div>
-                    <div className="flex flex-col items-end justify-between">
-                      <p className="font-bold text-sm">₱{item.subtotal.toFixed(2)}</p>
-                      <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border/50">
-                        <button type="button" onClick={() => updateQuantity(item.product_id, -1)} className="w-8 h-8 flex items-center justify-center hover:bg-background active:bg-background rounded-md shadow-xs text-foreground cursor-pointer">
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-5 text-center text-xs font-bold">{item.quantity}</span>
-                        <button type="button" onClick={() => updateQuantity(item.product_id, 1)} className="w-8 h-8 flex items-center justify-center hover:bg-background active:bg-background rounded-md shadow-xs text-foreground cursor-pointer">
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                        {item.product_name.startsWith('[Digital]') ? <Smartphone className="w-6 h-6 text-cyan-600" /> : <PackagePlus className="w-6 h-6 text-primary" />}
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center min-w-0">
+                        <p className="font-semibold text-sm truncate text-foreground">{item.product_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">₱{item.selling_price.toFixed(2)}</p>
+                          {isMaxStock && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                              (Max stock: {currentStock})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-between gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-sm">₱{item.subtotal.toFixed(2)}</p>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.product_id)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                            title="Remove from cart"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg p-1 border border-border/50">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.product_id, -1)}
+                            className="w-8 h-8 flex items-center justify-center hover:bg-background active:bg-background rounded-md shadow-xs text-foreground cursor-pointer"
+                            title="Decrease quantity"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={currentStock}
+                            value={item.quantity === 0 ? '' : item.quantity}
+                            onFocus={(event) => event.target.select()}
+                            onChange={(event) => {
+                              const raw = event.target.value;
+                              if (raw === '') {
+                                handleSetQuantity(item.product_id, 0);
+                                return;
+                              }
+                              const val = parseInt(raw, 10);
+                              if (!isNaN(val)) {
+                                handleSetQuantity(item.product_id, val);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (item.quantity <= 0) {
+                                handleSetQuantity(item.product_id, 1);
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                (event.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            className="w-10 h-8 text-center text-xs font-bold bg-transparent rounded-md focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 cursor-text select-all"
+                            title="Type quantity directly"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.product_id, 1)}
+                            disabled={isMaxStock}
+                            className={cn(
+                              "w-8 h-8 flex items-center justify-center rounded-md shadow-xs text-foreground transition-all",
+                              isMaxStock
+                                ? "opacity-30 cursor-not-allowed bg-transparent"
+                                : "hover:bg-background active:bg-background cursor-pointer"
+                            )}
+                            title={isMaxStock ? `Maximum stock reached (${currentStock})` : "Increase quantity"}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
@@ -542,7 +721,21 @@ export default function POS(): React.JSX.Element {
               <div className="mb-5 space-y-2">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Amount Tendered</Label>
-                  {changeGiven > 0 && <span className="text-xs font-bold text-green-600 dark:text-green-400">Change: ₱{changeGiven.toFixed(2)}</span>}
+                  {amountTendered && !isNaN(tenderedNumber) ? (
+                    tenderedNumber < totalAmount ? (
+                      <span className="text-xs font-semibold text-destructive">
+                        Short: ₱{(totalAmount - tenderedNumber).toFixed(2)}
+                      </span>
+                    ) : changeGiven > 0 ? (
+                      <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                        Change: ₱{changeGiven.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Exact Amount
+                      </span>
+                    )
+                  ) : null}
                 </div>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">₱</span>
@@ -550,6 +743,7 @@ export default function POS(): React.JSX.Element {
                     type="number"
                     placeholder="0.00"
                     value={amountTendered}
+                    onFocus={(event) => event.target.select()}
                     onChange={(event) => setAmountTendered(event.target.value)}
                     className="pl-8 text-lg font-semibold h-12 bg-background rounded-xl border-input shadow-sm focus-visible:ring-primary/40"
                   />
@@ -566,13 +760,28 @@ export default function POS(): React.JSX.Element {
             </div>
 
             <Button
-              className="w-full h-14 text-base font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 cursor-pointer"
+              className="w-full h-14 text-base font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleCheckout}
-              disabled={cart.length === 0}
+              disabled={isCheckoutDisabled}
             >
               <Check className="w-5 h-5" />
-              Complete Payment
+              {isCheckingOut ? 'Processing...' : 'Complete Payment'}
             </Button>
+            {cart.length > 0 && paymentType === 'Cash' && !amountTendered.trim() && (
+              <p className="text-center text-xs text-muted-foreground mt-2">
+                Enter amount tendered to complete payment
+              </p>
+            )}
+            {cart.length > 0 && paymentType === 'Cash' && amountTendered.trim() && !isNaN(tenderedNumber) && tenderedNumber < totalAmount && (
+              <p className="text-center text-xs text-destructive mt-2">
+                Amount tendered is less than total amount
+              </p>
+            )}
+            {cart.length > 0 && paymentType === 'Utang' && (!selectedCustomer || selectedCustomer === 'walk-in') && (
+              <p className="text-center text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Select a customer to complete Utang transaction
+              </p>
+            )}
           </div>
         </Card>
       </div>
@@ -609,20 +818,24 @@ export default function POS(): React.JSX.Element {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Amount (₱)</Label>
-                <Input type="number" required placeholder="0.00" value={serviceAmount} onChange={(event) => setServiceAmount(event.target.value)} className="h-11 rounded-xl bg-background" />
+                <Input type="number" required placeholder="0.00" value={serviceAmount} onFocus={(event) => event.target.select()} onChange={(event) => setServiceAmount(event.target.value)} className="h-11 rounded-xl bg-background" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Fee (₱)</Label>
-                <Input type="number" value={convenienceFee} onChange={(event) => setConvenienceFee(event.target.value)} className="h-11 rounded-xl bg-background" />
+                <Input type="number" value={convenienceFee} onFocus={(event) => event.target.select()} onChange={(event) => setConvenienceFee(event.target.value)} className="h-11 rounded-xl bg-background" />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Reference No.</Label>
               <Input placeholder="Optional" value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} className="h-11 rounded-xl bg-background" />
             </div>
-            <DialogFooter className="pt-4 border-t border-border/50 gap-2 sm:gap-0">
-              <Button type="button" variant="ghost" onClick={() => setActiveModal('none')} className="h-11 min-h-[44px] rounded-xl cursor-pointer">Cancel</Button>
-              <Button type="submit" className="h-11 min-h-[44px] bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl px-6 shadow-md shadow-cyan-600/20 cursor-pointer">Add to Order</Button>
+            <DialogFooter className="pt-4 border-t border-border/50 gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setActiveModal('none')} className="h-11 min-h-[44px] rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-11 min-h-[44px] rounded-xl bg-primary hover:bg-primary/90 text-white font-bold px-6 shadow-md shadow-primary/20 cursor-pointer">
+                Add to Order
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

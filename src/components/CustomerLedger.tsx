@@ -723,6 +723,7 @@ export default function CustomerLedger(): React.JSX.Element {
                     required
                     placeholder="0.00"
                     value={paymentAmount}
+                    onFocus={(event) => event.target.select()}
                     onChange={(event) => setPaymentAmount(event.target.value)}
                     className="h-11 min-h-[44px] rounded-xl text-base font-semibold"
                   />
@@ -754,13 +755,13 @@ export default function CustomerLedger(): React.JSX.Element {
                   type="button" 
                   variant="outline" 
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="h-11 min-h-[44px] rounded-xl font-semibold cursor-pointer w-full sm:w-auto"
+                  className="h-11 min-h-[44px] rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit"
-                  className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer w-full sm:w-auto"
+                  className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer w-full sm:w-auto"
                 >
                   Submit Payment
                 </Button>
@@ -820,22 +821,23 @@ export default function CustomerLedger(): React.JSX.Element {
                 min="0"
                 step="50"
                 value={newCustomer.credit_limit}
+                onFocus={(event) => event.target.select()}
                 onChange={(event) => setNewCustomer({ ...newCustomer, credit_limit: Number(event.target.value) })}
                 className="h-11 min-h-[44px] rounded-xl text-sm"
               />
             </div>
-            <DialogFooter className="pt-2 gap-2 sm:gap-0">
+            <DialogFooter className="pt-2 gap-2 sm:gap-2">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setIsAddCustomerModalOpen(false)}
-                className="h-11 min-h-[44px] rounded-xl font-semibold cursor-pointer w-full sm:w-auto"
+                className="h-11 min-h-[44px] rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit"
-                className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer w-full sm:w-auto"
+                className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer w-full sm:w-auto"
               >
                 Save Customer
               </Button>

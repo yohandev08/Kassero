@@ -70,7 +70,7 @@ export default function SalesAnalytics(): React.JSX.Element {
     .slice(0, 5);
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 lg:gap-6 lg:overflow-y-auto">
+    <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 lg:gap-6 lg:overflow-y-auto p-1">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
