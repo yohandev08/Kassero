@@ -183,7 +183,7 @@ export default function SalesAnalytics(): React.JSX.Element {
   }, [filteredSales, currentPage]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col gap-3.5 lg:gap-4 lg:overflow-y-auto lg:h-[calc(100dvh-6.5rem)] p-1 sm:p-2">
+    <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 p-1 sm:p-2 pb-8">
       {/* 1. HEADER & TIME FILTER BAR */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 bg-background p-3.5 sm:p-4 rounded-2xl shadow-xs border border-border/60 shrink-0">
         <div className="flex items-center gap-3">
@@ -493,7 +493,7 @@ export default function SalesAnalytics(): React.JSX.Element {
       </div>
 
       {/* 4. RECENT SALES TRANSACTIONS AUDIT LOG */}
-      <Card className="border-border/60 bg-background shadow-xs rounded-2xl overflow-hidden flex-1 flex flex-col min-h-0 mb-4">
+      <Card className="border-border/60 bg-background shadow-xs rounded-2xl overflow-hidden flex flex-col mb-6">
         <CardHeader className="p-3.5 sm:p-4 pb-3 border-b border-border/50 bg-muted/15 shrink-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -551,8 +551,8 @@ export default function SalesAnalytics(): React.JSX.Element {
           </div>
         </CardHeader>
 
-        <CardContent className="p-0 flex-1 flex flex-col min-h-0 overflow-hidden">
-          <ScrollArea className="flex-1 min-h-0">
+        <CardContent className="p-0 flex flex-col">
+          <div>
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                 <Receipt className="w-8 h-8 opacity-40 animate-pulse text-primary mb-2" />
@@ -692,7 +692,7 @@ export default function SalesAnalytics(): React.JSX.Element {
                 </div>
               </>
             )}
-          </ScrollArea>
+          </div>
 
           {/* Pagination Footer */}
           {totalPages > 1 && (
