@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import type { Customer, UtangTransaction } from '@/types';
 import { fetchCustomers as fetchCustomersService, updateCustomerBalance, addCustomer } from '@/services/customer.Service';
 import { fetchUtangHistory, recordPayment, markUtangAsPaid, fetchPayments } from '@/services/payment.Service';
@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Phone,
-  Check
+  Check,
+  RotateCcw,
+  Wallet,
+  TrendingDown,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -35,16 +39,21 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from 'cn';
+import { cn } from '@/lib/utils';
+
+type BalanceFilter = 'all' | 'with_debt' | 'settled';
 
 export default function CustomerLedger(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>('all');
   const [utangHistory, setUtangHistory] = useState<UtangTransaction[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [loadingCustomers, setLoadingCustomers] = useState<boolean>(true);
   
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const { showAlert, showConfirm } = useAlert();
 
   // Navigation state for mobile view: 'list' or 'detail'
@@ -74,13 +83,10 @@ export default function CustomerLedger(): React.JSX.Element {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [deferredSearchQuery, balanceFilter]);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
+    setLoadingCustomers(true);
     const { data, error } = await fetchCustomersService({
       orderBy: 'current_balance',
       ascending: false,
@@ -89,14 +95,20 @@ export default function CustomerLedger(): React.JSX.Element {
     if (error) {
       console.error('Error fetching customers:', error);
     } else {
-      setCustomers(data || []);
-      if (data && data.length > 0 && !selectedCustomer) {
-        handleSelectCustomer(data[0], true);
+      const customerList = data || [];
+      setCustomers(customerList);
+      if (customerList.length > 0 && !selectedCustomer) {
+        handleSelectCustomer(customerList[0], true);
       }
     }
-  };
+    setLoadingCustomers(false);
+  }, [selectedCustomer]);
 
-  const handleSelectCustomer = async (customer: Customer, autoSelect: boolean = false) => {
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  const handleSelectCustomer = useCallback(async (customer: Customer, autoSelect: boolean = false) => {
     setSelectedCustomer(customer);
     setLoadingHistory(true);
 
@@ -121,9 +133,64 @@ export default function CustomerLedger(): React.JSX.Element {
       setPaymentHistory(paymentsResponse.data || []);
     }
     setLoadingHistory(false);
-  };
+  }, []);
 
-  const handleRecordPayment = async (event: React.FormEvent) => {
+  // Store-wide metrics
+  const storeMetrics = useMemo(() => {
+    let totalDebt = 0;
+    let debtorsCount = 0;
+    let settledCount = 0;
+    let totalLimit = 0;
+
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      totalDebt += c.current_balance || 0;
+      totalLimit += c.credit_limit || 0;
+      if (c.current_balance > 0) {
+        debtorsCount++;
+      } else {
+        settledCount++;
+      }
+    }
+
+    return {
+      totalDebt,
+      debtorsCount,
+      settledCount,
+      totalLimit,
+      totalCustomers: customers.length,
+    };
+  }, [customers]);
+
+  // Filtering Logic (Memoized & Deferred)
+  const filteredCustomers = useMemo(() => {
+    const query = deferredSearchQuery.trim().toLowerCase();
+
+    return customers.filter((customer) => {
+      // Balance tab filter
+      if (balanceFilter === 'with_debt' && customer.current_balance <= 0) return false;
+      if (balanceFilter === 'settled' && customer.current_balance > 0) return false;
+
+      // Search query filter
+      if (query) {
+        const fullName = `${customer.first_name} ${customer.last_name}`.toLowerCase();
+        const phone = (customer.phone_number || '').toLowerCase();
+        if (!fullName.includes(query) && !phone.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [customers, deferredSearchQuery, balanceFilter]);
+
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
+  const paginatedCustomers = useMemo(() => {
+    return filteredCustomers.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+  }, [filteredCustomers, currentPage]);
+
+  const handleRecordPayment = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedCustomer) return;
 
@@ -133,18 +200,18 @@ export default function CustomerLedger(): React.JSX.Element {
     }
 
     if (amountPaid > selectedCustomer.current_balance) {
-      return showAlert('Payment amount cannot be higher than the current balance!');
+      return showAlert('Payment amount cannot be higher than the customer current balance!');
     }
 
     try {
       const { error: paymentError } = await recordPayment({
         customer_id: selectedCustomer.customer_id,
         amount_paid: amountPaid,
-        notes: paymentNotes || 'Cash Utang Payment',
+        notes: paymentNotes.trim() || 'Cash Utang Payment',
       });
       if (paymentError) throw paymentError;
 
-      const newBalance = selectedCustomer.current_balance - amountPaid;
+      const newBalance = Math.max(0, selectedCustomer.current_balance - amountPaid);
       const { error: customerError } = await updateCustomerBalance(
         selectedCustomer.customer_id,
         newBalance
@@ -169,52 +236,43 @@ export default function CustomerLedger(): React.JSX.Element {
       console.error('Payment error:', error);
       showAlert('Failed to process payment: ' + error.message);
     }
-  };
+  }, [selectedCustomer, paymentAmount, paymentNotes, showAlert, fetchCustomers, handleSelectCustomer]);
 
-  const filteredCustomers = customers.filter((customer) =>
-    `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
-  const paginatedCustomers = filteredCustomers.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const toggleSelectForRemoval = (id: number) => {
+  const toggleSelectForRemoval = useCallback((id: number) => {
     setSelectedForRemoval(previousSelected => {
       const newSet = new Set(previousSelected);
       if (newSet.has(id)) newSet.delete(id);
       else newSet.add(id);
       return newSet;
     });
-  };
+  }, []);
 
-  const selectAllFiltered = () => {
+  const selectAllFiltered = useCallback(() => {
     if (selectedForRemoval.size === filteredCustomers.length && filteredCustomers.length > 0) {
       setSelectedForRemoval(new Set());
     } else {
       setSelectedForRemoval(new Set(filteredCustomers.map(customer => customer.customer_id)));
     }
-  };
+  }, [selectedForRemoval, filteredCustomers]);
 
-  const exitRemoveMode = () => {
+  const exitRemoveMode = useCallback(() => {
     setRemoveMode(false);
     setSelectedForRemoval(new Set());
-  };
+  }, []);
 
-  const removeSelectedCustomers = async () => {
+  const removeSelectedCustomers = useCallback(async () => {
     if (selectedForRemoval.size === 0) return;
-    showConfirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)?`, async () => {
+    showConfirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)? This removes their account from directory.`, async () => {
       try {
         const { deleteCustomers } = await import('@/services/customer.Service');
         const { error } = await deleteCustomers(Array.from(selectedForRemoval));
         if (error) throw error;
 
-        setCustomers(customers.filter(customer => !selectedForRemoval.has(customer.customer_id)));
+        setCustomers(prev => prev.filter(c => !selectedForRemoval.has(c.customer_id)));
         if (selectedCustomer && selectedForRemoval.has(selectedCustomer.customer_id)) {
           setSelectedCustomer(null);
           setUtangHistory([]);
+          setPaymentHistory([]);
           setMobileView('list');
         }
         exitRemoveMode();
@@ -223,17 +281,20 @@ export default function CustomerLedger(): React.JSX.Element {
         showAlert('Failed to delete customers: ' + error.message);
       }
     });
-  };
+  }, [selectedForRemoval, showConfirm, showAlert, selectedCustomer, exitRemoveMode]);
 
-  const handleAddCustomer = async (event: React.FormEvent) => {
+  const handleAddCustomer = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!newCustomer.first_name || !newCustomer.last_name) {
+    if (!newCustomer.first_name.trim() || !newCustomer.last_name.trim()) {
       showAlert('First Name and Last Name are required.');
       return;
     }
     try {
       const { data, error } = await addCustomer({
-        ...newCustomer,
+        first_name: newCustomer.first_name.trim(),
+        last_name: newCustomer.last_name.trim(),
+        phone_number: newCustomer.phone_number.trim(),
+        credit_limit: Number(newCustomer.credit_limit) || 500,
         current_balance: 0,
         is_allowed_utang: true,
       });
@@ -243,38 +304,59 @@ export default function CustomerLedger(): React.JSX.Element {
       await fetchCustomers();
       setIsAddCustomerModalOpen(false);
       setNewCustomer({ first_name: '', last_name: '', phone_number: '', credit_limit: 500 });
-      showAlert('Customer added successfully!');
+      showAlert('Customer registered to ledger successfully!');
     } catch (error: any) {
       console.error('Failed to add customer:', error);
       showAlert('Failed to add customer: ' + error.message);
     }
-  };
-  
-  const unpaidTimeline = utangHistory
-    .filter(utang => utang.status === 'Unpaid')
-    .map(utang => ({ ...utang, _type: 'utang', _date: new Date(utang.created_at).getTime() }))
-    .sort((firstEntry, secondEntry) => secondEntry._date - firstEntry._date);
+  }, [newCustomer, showAlert, fetchCustomers]);
+
+  // Live calculation for payment preview
+  const paymentAmountNum = parseFloat(paymentAmount) || 0;
+  const remainingDebtPreview = selectedCustomer ? Math.max(0, selectedCustomer.current_balance - paymentAmountNum) : 0;
+
+  // Duplicate name detection in Add Customer
+  const isDuplicateCustomer = useMemo(() => {
+    const fn = newCustomer.first_name.trim().toLowerCase();
+    const ln = newCustomer.last_name.trim().toLowerCase();
+    if (!fn || !ln) return false;
+    return customers.some(c => c.first_name.toLowerCase() === fn && c.last_name.toLowerCase() === ln);
+  }, [newCustomer, customers]);
+
+  // Timelines Memoized
+  const unpaidTimeline = useMemo(() => {
+    return utangHistory
+      .filter(utang => utang.status === 'Unpaid')
+      .map(utang => ({ ...utang, _type: 'utang', _date: new Date(utang.created_at).getTime() }))
+      .sort((a, b) => b._date - a._date);
+  }, [utangHistory]);
     
-  const paidTimeline = [
-    ...utangHistory.filter(utang => utang.status === 'Paid').map(utang => ({ ...utang, _type: 'utang', _date: new Date(utang.created_at).getTime() })),
-    ...paymentHistory.map(payment => ({ ...payment, _type: 'payment', _date: new Date(payment.created_at).getTime() }))
-  ].sort((firstEntry, secondEntry) => secondEntry._date - firstEntry._date);
+  const paidTimeline = useMemo(() => {
+    return [
+      ...utangHistory.filter(utang => utang.status === 'Paid').map(utang => ({ ...utang, _type: 'utang', _date: new Date(utang.created_at).getTime() })),
+      ...paymentHistory.map(payment => ({ ...payment, _type: 'payment', _date: new Date(payment.created_at).getTime() }))
+    ].sort((a, b) => b._date - a._date);
+  }, [utangHistory, paymentHistory]);
 
   const renderUnpaidTimeline = () => {
     if (loadingHistory) {
       return (
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
           <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
-          <span className="text-sm font-medium">Loading transactions...</span>
+          <span className="text-sm font-semibold">Loading transaction records...</span>
         </div>
       );
     }
     if (unpaidTimeline.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2 text-center p-4">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500/80 mb-1" />
-          <p className="font-semibold text-foreground">No unpaid utang</p>
-          <p className="text-xs text-muted-foreground">All credit balances are fully settled.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2.5 text-center p-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <p className="font-bold text-base text-foreground">Zero Outstanding Debt</p>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            This customer currently has no unpaid utang. All credit balances are fully settled!
+          </p>
         </div>
       );
     }
@@ -286,7 +368,9 @@ export default function CustomerLedger(): React.JSX.Element {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <CardTitle className="text-sm sm:text-base font-bold text-foreground">Sale #{event.sale_id}</CardTitle>
-                  <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">Unpaid</Badge>
+                  <Badge variant="destructive" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                    Unpaid
+                  </Badge>
                 </div>
                 <CardDescription className="text-xs mt-1 text-muted-foreground flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 shrink-0" />
@@ -294,7 +378,9 @@ export default function CustomerLedger(): React.JSX.Element {
                 </CardDescription>
               </div>
               <div className="text-right shrink-0">
-                <span className="font-black text-base sm:text-lg text-destructive">₱{event.amount.toFixed(2)}</span>
+                <span className="font-black text-base sm:text-lg text-rose-600 dark:text-rose-400 tabular-nums">
+                  ₱{event.amount.toFixed(2)}
+                </span>
               </div>
             </CardHeader>
             {event.sales?.sale_items && event.sales.sale_items.length > 0 && (
@@ -306,7 +392,7 @@ export default function CustomerLedger(): React.JSX.Element {
                       <span className="truncate text-foreground font-medium">
                         {item.quantity}x {item.products?.product_name || 'Item'}
                       </span>
-                      <span className="shrink-0 font-bold text-muted-foreground">
+                      <span className="shrink-0 font-bold text-muted-foreground tabular-nums">
                         ₱{item.subtotal.toFixed(2)}
                       </span>
                     </div>
@@ -323,18 +409,22 @@ export default function CustomerLedger(): React.JSX.Element {
   const renderPaidTimeline = () => {
     if (loadingHistory) {
       return (
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
           <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
-          <span className="text-sm font-medium">Loading history...</span>
+          <span className="text-sm font-semibold">Loading history records...</span>
         </div>
       );
     }
     if (paidTimeline.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2 text-center p-4">
-          <Receipt className="w-10 h-10 text-muted-foreground/40 mb-1" />
-          <p className="font-semibold text-foreground">No payment records found</p>
-          <p className="text-xs text-muted-foreground">No settled accounts or payment history recorded yet.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2.5 text-center p-4">
+          <div className="w-12 h-12 rounded-2xl bg-muted/60 text-muted-foreground flex items-center justify-center mb-1">
+            <Receipt className="w-6 h-6 opacity-60" />
+          </div>
+          <p className="font-bold text-base text-foreground">No Payment Records Found</p>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            No settled accounts or payment receipts recorded for this customer yet.
+          </p>
         </div>
       );
     }
@@ -347,8 +437,10 @@ export default function CustomerLedger(): React.JSX.Element {
                 <CardHeader className="p-3.5 sm:p-4 flex flex-row items-start justify-between space-y-0 gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <CardTitle className="text-sm sm:text-base font-bold text-foreground">Utang Payment</CardTitle>
-                      <Badge variant="secondary" className="text-[10px] font-bold tracking-wider px-2 py-0.5 bg-primary/10 text-primary border-primary/20">Received</Badge>
+                      <CardTitle className="text-sm sm:text-base font-bold text-foreground">Utang Payment Received</CardTitle>
+                      <Badge variant="secondary" className="text-[10px] font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        Received
+                      </Badge>
                     </div>
                     <CardDescription className="text-xs mt-1 text-muted-foreground flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 shrink-0" />
@@ -356,7 +448,9 @@ export default function CustomerLedger(): React.JSX.Element {
                     </CardDescription>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-black text-base sm:text-lg text-primary">+₱{event.amount_paid.toFixed(2)}</span>
+                    <span className="font-black text-base sm:text-lg text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      +₱{event.amount_paid.toFixed(2)}
+                    </span>
                   </div>
                 </CardHeader>
                 {event.notes && (
@@ -373,7 +467,9 @@ export default function CustomerLedger(): React.JSX.Element {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-sm sm:text-base font-semibold text-muted-foreground">Sale #{event.sale_id}</CardTitle>
-                      <Badge variant="outline" className="text-[10px] font-bold tracking-wider px-2 py-0.5">Settled</Badge>
+                      <Badge variant="outline" className="text-[10px] font-bold tracking-wider px-2 py-0.5 border-border/60">
+                        Settled
+                      </Badge>
                     </div>
                     <CardDescription className="text-xs mt-1 text-muted-foreground flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 shrink-0" />
@@ -381,7 +477,9 @@ export default function CustomerLedger(): React.JSX.Element {
                     </CardDescription>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="font-bold text-sm sm:text-base text-muted-foreground">₱{event.amount.toFixed(2)}</span>
+                    <span className="font-bold text-sm sm:text-base text-muted-foreground tabular-nums">
+                      ₱{event.amount.toFixed(2)}
+                    </span>
                   </div>
                 </CardHeader>
               </Card>
@@ -393,26 +491,26 @@ export default function CustomerLedger(): React.JSX.Element {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-4 lg:gap-6 items-start">
+    <div className="w-full max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] gap-3.5 lg:gap-4 items-start lg:h-[calc(100dvh-6.5rem)] lg:overflow-hidden p-1 sm:p-2">
       
       {/* 1. Customer List Panel (Visible on mobile when in 'list' view, always on desktop) */}
       <Card className={cn(
-        "flex-col border-border/50 bg-background shadow-sm rounded-2xl w-full overflow-hidden transition-all",
-        "lg:h-[calc(100dvh-5.5rem)]",
+        "flex-col border-border/60 bg-background shadow-xs rounded-2xl w-full overflow-hidden transition-all",
+        "lg:h-full min-h-0",
         mobileView === 'list' ? 'flex' : 'hidden lg:flex'
       )}>
-        <CardHeader className="p-4 sm:p-5 border-b border-border/40 space-y-3">
+        <CardHeader className="p-3.5 sm:p-4 border-b border-border/50 bg-muted/15 space-y-3 shrink-0">
           <div className="flex justify-between items-center gap-2">
             <div>
-              <CardTitle className="text-lg sm:text-xl font-bold tracking-tight">Customers</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">Directory & utang credit</CardDescription>
+              <CardTitle className="text-lg sm:text-xl font-black tracking-tight text-foreground">Customer Ledger</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground font-medium">Directory & utang credit records</CardDescription>
             </div>
             
             <div className="flex gap-2 shrink-0">
               <Button 
                 variant="outline" 
                 onClick={() => setIsAddCustomerModalOpen(true)}
-                className="h-11 min-h-[44px] px-3.5 gap-1.5 rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-semibold cursor-pointer text-xs sm:text-sm"
+                className="h-11 min-h-[44px] px-3.5 gap-1.5 rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-bold cursor-pointer text-xs sm:text-sm active:scale-[0.98] transition-transform motion-reduce:transform-none"
               >
                 <UserPlus className="w-4 h-4 shrink-0" />
                 <span>Add</span>
@@ -424,7 +522,7 @@ export default function CustomerLedger(): React.JSX.Element {
                   else setRemoveMode(true);
                 }}
                 className={cn(
-                  "h-11 min-h-[44px] px-3.5 gap-1.5 rounded-xl font-semibold cursor-pointer text-xs sm:text-sm",
+                  "h-11 min-h-[44px] px-3.5 gap-1.5 rounded-xl font-bold cursor-pointer text-xs sm:text-sm active:scale-[0.98] transition-transform motion-reduce:transform-none",
                   !removeMode && "border-border/60 text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -434,26 +532,90 @@ export default function CustomerLedger(): React.JSX.Element {
             </div>
           </div>
 
-          {/* Search Input with centered touch target */}
+          {/* Search Input with centered touch target and clear button */}
           <div className="relative w-full">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search by name..."
+              placeholder="Search by customer name or phone..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="pl-10 pr-4 h-11 min-h-[44px] bg-muted/40 border-border/50 rounded-xl focus-visible:ring-primary/30 text-sm w-full"
+              className="pl-10 pr-9 h-11 min-h-[44px] bg-background border-input rounded-xl focus-visible:ring-primary/40 text-sm font-medium w-full"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded-md hover:bg-muted"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* Balance Filter Tabs */}
+          <Tabs
+            value={balanceFilter}
+            onValueChange={(val) => setBalanceFilter(val as BalanceFilter)}
+            className="w-full"
+          >
+            <TabsList className="h-10 min-h-[40px] p-1 bg-muted/60 border border-border/50 rounded-xl w-full grid grid-cols-3">
+              <TabsTrigger
+                value="all"
+                className="rounded-lg text-xs font-bold px-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs cursor-pointer"
+              >
+                All ({storeMetrics.totalCustomers})
+              </TabsTrigger>
+              <TabsTrigger
+                value="with_debt"
+                className="rounded-lg text-xs font-bold px-2 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-600 dark:data-[state=active]:text-rose-400 data-[state=active]:shadow-xs cursor-pointer"
+              >
+                With Debt ({storeMetrics.debtorsCount})
+              </TabsTrigger>
+              <TabsTrigger
+                value="settled"
+                className="rounded-lg text-xs font-bold px-2 data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs cursor-pointer"
+              >
+                Settled ({storeMetrics.settledCount})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
 
         <CardContent className="flex-1 p-0 overflow-hidden flex flex-col min-h-0">
-          <ScrollArea className="flex-1 h-full">
+          <ScrollArea className="flex-1 h-full min-h-0">
             <div className="p-3 sm:p-4 space-y-2.5">
-              {paginatedCustomers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2 text-center p-4">
-                  <User className="w-10 h-10 opacity-30 mb-1" />
-                  <p className="font-semibold text-foreground text-sm">No customers found</p>
-                  <p className="text-xs text-muted-foreground">Try a different name or add a new customer.</p>
+              {loadingCustomers ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2 text-center p-4">
+                  <User className="w-8 h-8 opacity-40 animate-pulse text-primary mb-1" />
+                  <p className="font-bold text-sm text-foreground">Loading directory...</p>
+                  <p className="text-xs text-muted-foreground">Retrieving customer balances and accounts</p>
+                </div>
+              ) : paginatedCustomers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2 text-center p-4">
+                  <div className="w-12 h-12 rounded-2xl bg-muted/60 text-muted-foreground flex items-center justify-center mb-1">
+                    <User className="w-6 h-6 opacity-40" />
+                  </div>
+                  <p className="font-bold text-foreground text-sm">No customers found</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    {searchQuery || balanceFilter !== 'all'
+                      ? 'No customers match your current search or balance filter.'
+                      : 'You have not registered any customers yet.'}
+                  </p>
+                  {(searchQuery || balanceFilter !== 'all') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setBalanceFilter('all');
+                      }}
+                      className="mt-3 rounded-xl font-bold h-9 gap-1.5 border-border/60 cursor-pointer text-xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset Filters</span>
+                    </Button>
+                  )}
                 </div>
               ) : (
                 paginatedCustomers.map((customer) => {
@@ -476,10 +638,10 @@ export default function CustomerLedger(): React.JSX.Element {
                       }}
                       className={cn(
                         "w-full text-left p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer select-none",
-                        "flex items-center justify-between gap-3 min-h-[64px] active:scale-[0.99]",
+                        "flex items-center justify-between gap-3 min-h-[64px] active:scale-[0.99] motion-reduce:transform-none",
                         isSelected && !removeMode
-                          ? "border-primary bg-primary/5 shadow-xs" 
-                          : "border-border/50 bg-background hover:bg-muted/40",
+                          ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/30" 
+                          : "border-border/60 bg-background hover:bg-muted/40",
                         removeMode && isSelectedForRemoval && "border-destructive bg-destructive/10"
                       )}
                     >
@@ -503,7 +665,7 @@ export default function CustomerLedger(): React.JSX.Element {
                                 <span>{customer.phone_number}</span>
                               </>
                             ) : (
-                              'No phone number'
+                              'No contact number'
                             )}
                           </span>
                         </div>
@@ -511,14 +673,19 @@ export default function CustomerLedger(): React.JSX.Element {
 
                       <div className="flex flex-col items-end gap-1 shrink-0 text-right">
                         <span className={cn(
-                          "font-black text-sm sm:text-base",
-                          customer.current_balance > 0 ? "text-destructive" : "text-muted-foreground"
+                          "font-black text-sm sm:text-base tabular-nums",
+                          customer.current_balance > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
                         )}>
                           ₱{customer.current_balance.toFixed(2)}
                         </span>
                         <Badge 
                           variant={isOverLimit ? "destructive" : "secondary"}
-                          className="text-[10px] font-bold px-2 py-0 h-5"
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0 h-5 tabular-nums",
+                            isOverLimit 
+                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30" 
+                              : "bg-muted text-muted-foreground border-border/50"
+                          )}
                         >
                           {isOverLimit ? 'Over Limit' : `Limit: ₱${customer.credit_limit}`}
                         </Badge>
@@ -536,18 +703,18 @@ export default function CustomerLedger(): React.JSX.Element {
                 variant="outline"
                 onClick={() => setCurrentPage((previousPage) => Math.max(1, previousPage - 1))}
                 disabled={currentPage === 1}
-                className="h-11 min-h-[44px] px-4 rounded-xl font-semibold text-xs sm:text-sm cursor-pointer"
+                className="h-11 min-h-[44px] px-4 rounded-xl font-bold text-xs sm:text-sm cursor-pointer"
               >
                 Previous
               </Button>
-              <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                {currentPage} / {totalPages}
+              <span className="text-xs sm:text-sm font-semibold text-muted-foreground tabular-nums">
+                Page {currentPage} of {totalPages}
               </span>
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage((previousPage) => Math.min(totalPages, previousPage + 1))}
                 disabled={currentPage === totalPages}
-                className="h-11 min-h-[44px] px-4 rounded-xl font-semibold text-xs sm:text-sm cursor-pointer"
+                className="h-11 min-h-[44px] px-4 rounded-xl font-bold text-xs sm:text-sm cursor-pointer"
               >
                 Next
               </Button>
@@ -556,24 +723,24 @@ export default function CustomerLedger(): React.JSX.Element {
         </CardContent>
 
         {removeMode && (
-          <CardFooter className="bg-muted/30 p-3 sm:p-4 border-t border-border/40 flex flex-col gap-2 shrink-0">
-            <div className="flex justify-between items-center w-full text-xs font-semibold">
-              <span className="text-muted-foreground">{selectedForRemoval.size} customer(s) selected</span>
-              <Button variant="ghost" size="sm" onClick={selectAllFiltered} className="h-8 text-primary font-bold cursor-pointer">
+          <CardFooter className="bg-muted/30 p-3 sm:p-4 border-t border-border/40 flex flex-col gap-2 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+            <div className="flex justify-between items-center w-full text-xs font-bold">
+              <span className="text-muted-foreground tabular-nums">{selectedForRemoval.size} customer(s) selected</span>
+              <Button variant="ghost" size="sm" onClick={selectAllFiltered} className="h-8 text-primary font-bold cursor-pointer hover:bg-primary/10">
                 {selectedForRemoval.size === filteredCustomers.length && filteredCustomers.length > 0 ? 'Deselect All' : 'Select All'}
               </Button>
             </div>
             <div className="flex gap-2 w-full">
-              <Button variant="outline" className="flex-1 h-11 min-h-[44px] rounded-xl font-semibold cursor-pointer" onClick={exitRemoveMode}>
+              <Button variant="outline" className="flex-1 h-11 min-h-[44px] rounded-xl font-bold cursor-pointer border-border/70" onClick={exitRemoveMode}>
                 Cancel
               </Button>
               <Button 
                 variant="destructive" 
-                className="flex-1 h-11 min-h-[44px] rounded-xl font-bold cursor-pointer" 
+                className="flex-1 h-11 min-h-[44px] rounded-xl font-bold cursor-pointer active:scale-[0.98] transition-transform motion-reduce:transform-none" 
                 disabled={selectedForRemoval.size === 0} 
                 onClick={removeSelectedCustomers}
               >
-                Delete {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
+                Delete Selected {selectedForRemoval.size > 0 ? `(${selectedForRemoval.size})` : ''}
               </Button>
             </div>
           </CardFooter>
@@ -582,21 +749,21 @@ export default function CustomerLedger(): React.JSX.Element {
 
       {/* 2. Customer Details & Ledger Panel (Visible on mobile when in 'detail' view, always on desktop) */}
       <Card className={cn(
-        "flex-col border-border/50 bg-background shadow-sm rounded-2xl w-full overflow-hidden transition-all",
-        "lg:h-[calc(100dvh-5.5rem)]",
+        "flex-col border-border/60 bg-background shadow-xs rounded-2xl w-full overflow-hidden transition-all",
+        "lg:h-full min-h-0",
         mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
       )}>
         {selectedCustomer ? (
           <>
-            <CardHeader className="p-4 sm:p-5 border-b border-border/40 space-y-4">
+            <CardHeader className="p-3.5 sm:p-4 border-b border-border/50 bg-muted/15 space-y-3.5 shrink-0">
               {/* Header with Mobile Back button & Customer summary */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                   {/* Mobile Back Button */}
                   <Button
                     variant="outline"
                     onClick={() => setMobileView('list')}
-                    className="lg:hidden h-11 min-h-[44px] px-3 gap-1 rounded-xl font-semibold border-border/60 cursor-pointer shrink-0"
+                    className="lg:hidden h-11 min-h-[44px] px-3 gap-1 rounded-xl font-bold border-border/60 cursor-pointer shrink-0"
                     aria-label="Back to Customer List"
                   >
                     <ArrowLeft className="w-4 h-4" />
@@ -604,12 +771,12 @@ export default function CustomerLedger(): React.JSX.Element {
                   </Button>
 
                   <div className="min-w-0">
-                    <CardTitle className="text-lg sm:text-2xl font-black text-foreground truncate">
+                    <CardTitle className="text-lg sm:text-2xl font-black text-foreground truncate tracking-tight">
                       {selectedCustomer.first_name} {selectedCustomer.last_name}
                     </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5 truncate">
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5 truncate font-medium">
                       <Phone className="w-3.5 h-3.5 shrink-0" />
-                      <span>{selectedCustomer.phone_number || 'No contact number'}</span>
+                      <span>{selectedCustomer.phone_number || 'No contact number registered'}</span>
                     </CardDescription>
                   </div>
                 </div>
@@ -619,36 +786,45 @@ export default function CustomerLedger(): React.JSX.Element {
                   onClick={() => setIsPaymentModalOpen(true)}
                   disabled={selectedCustomer.current_balance <= 0}
                   className={cn(
-                    "h-11 min-h-[44px] px-5 gap-2 rounded-xl font-bold text-sm shadow-md cursor-pointer shrink-0 w-full sm:w-auto",
+                    "h-11 min-h-[44px] px-5 gap-2 rounded-xl font-bold text-sm shadow-sm cursor-pointer shrink-0 w-full sm:w-auto active:scale-[0.98] transition-transform motion-reduce:transform-none",
                     selectedCustomer.current_balance > 0 
-                      ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20" 
-                      : "opacity-60"
+                      ? "bg-primary hover:bg-primary/90 text-white" 
+                      : "opacity-60 cursor-not-allowed"
                   )}
                 >
                   <DollarSign className="w-4 h-4 shrink-0" />
-                  <span>Pay Utang</span>
+                  <span>Record Payment</span>
                 </Button>
               </div>
 
               {/* Responsive Financial Metrics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                <div className="p-3.5 sm:p-4 rounded-xl border border-destructive/20 bg-destructive/5 flex flex-col justify-center">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Debt</span>
-                  <span className="text-xl sm:text-2xl font-black text-destructive mt-0.5">
+                {/* Total Debt */}
+                <div className="p-3.5 sm:p-4 rounded-xl border border-rose-500/25 bg-rose-500/10 flex flex-col justify-center">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                    Outstanding Debt
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums">
                     ₱{selectedCustomer.current_balance.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="p-3.5 sm:p-4 rounded-xl border border-border/60 bg-muted/30 flex flex-col justify-center">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground">Credit Limit</span>
-                  <span className="text-xl sm:text-2xl font-black text-foreground mt-0.5">
+                {/* Credit Limit */}
+                <div className="p-3.5 sm:p-4 rounded-xl border border-border/60 bg-muted/40 flex flex-col justify-center">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Credit Limit
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-foreground mt-0.5 tabular-nums">
                     ₱{selectedCustomer.credit_limit.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="p-3.5 sm:p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col justify-center">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary">Available Credit</span>
-                  <span className="text-xl sm:text-2xl font-black text-primary mt-0.5">
+                {/* Available Credit */}
+                <div className="p-3.5 sm:p-4 rounded-xl border border-primary/25 bg-primary/10 flex flex-col justify-center">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary">
+                    Available Credit
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-primary mt-0.5 tabular-nums">
                     ₱{Math.max(0, selectedCustomer.credit_limit - selectedCustomer.current_balance).toFixed(2)}
                   </span>
                 </div>
@@ -658,18 +834,24 @@ export default function CustomerLedger(): React.JSX.Element {
             {/* Tabs & Timeline History */}
             <CardContent className="flex-1 p-0 flex flex-col overflow-hidden min-h-0">
               <Tabs defaultValue="unpaid" className="flex-1 flex flex-col min-h-0">
-                <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-border/40 bg-muted/10 shrink-0">
-                  <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/60 rounded-xl">
-                    <TabsTrigger value="unpaid" className="h-9 rounded-lg font-bold text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-xs cursor-pointer">
+                <div className="px-3.5 sm:px-6 pt-3 pb-2 border-b border-border/40 bg-muted/10 shrink-0">
+                  <TabsList className="grid w-full grid-cols-2 h-11 min-h-[44px] p-1 bg-muted/60 rounded-xl">
+                    <TabsTrigger 
+                      value="unpaid" 
+                      className="h-9 rounded-lg font-bold text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs cursor-pointer"
+                    >
                       Unpaid Utang ({unpaidTimeline.length})
                     </TabsTrigger>
-                    <TabsTrigger value="paid" className="h-9 rounded-lg font-bold text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-xs cursor-pointer">
+                    <TabsTrigger 
+                      value="paid" 
+                      className="h-9 rounded-lg font-bold text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs cursor-pointer"
+                    >
                       Paid & History ({paidTimeline.length})
                     </TabsTrigger>
                   </TabsList>
                 </div>
                 
-                <ScrollArea className="flex-1 p-3.5 sm:p-6 h-full">
+                <ScrollArea className="flex-1 p-3.5 sm:p-6 h-full min-h-0">
                   <TabsContent value="unpaid" className="m-0 focus-visible:outline-none">
                     {renderUnpaidTimeline()}
                   </TabsContent>
@@ -683,12 +865,12 @@ export default function CustomerLedger(): React.JSX.Element {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center min-h-[300px]">
-            <div className="w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
               <User className="w-8 h-8 opacity-40 text-muted-foreground" />
             </div>
             <p className="text-lg font-bold text-foreground">No Customer Selected</p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xs">
-              Choose a customer from the directory to view their utang history and record payments.
+              Choose a customer from the directory to inspect their utang history and record payments.
             </p>
           </div>
         )}
@@ -696,74 +878,116 @@ export default function CustomerLedger(): React.JSX.Element {
 
       {/* Payment Dialog */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="sm:max-w-md w-[95vw] rounded-2xl p-5 sm:p-6">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-lg font-bold">Record Utang Payment</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-5 sm:p-6 border-b border-primary/20">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+                Record Utang Payment
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground mt-1">
+              Record a full or partial debt payment received from this customer.
+            </p>
+          </div>
+
           {selectedCustomer && (
-            <form onSubmit={handleRecordPayment} className="space-y-4 pt-2">
-              <div className="space-y-3.5">
-                <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-muted/40 border border-border/40">
-                  <span className="text-muted-foreground">Customer</span>
+            <form onSubmit={handleRecordPayment} className="p-5 sm:p-6 space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm p-3.5 rounded-xl bg-muted/40 border border-border/50">
+                  <span className="text-xs font-semibold text-muted-foreground">Customer</span>
                   <span className="font-bold text-foreground">{selectedCustomer.first_name} {selectedCustomer.last_name}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-destructive/10 border border-destructive/20">
-                  <span className="text-muted-foreground font-medium">Current Debt</span>
-                  <span className="font-black text-destructive text-base">₱{selectedCustomer.current_balance.toFixed(2)}</span>
+
+                <div className="flex justify-between items-center text-sm p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400">Current Outstanding Debt</span>
+                  <span className="font-black text-rose-600 dark:text-rose-400 text-base tabular-nums">
+                    ₱{selectedCustomer.current_balance.toFixed(2)}
+                  </span>
                 </div>
                 
+                {/* Payment Amount Input */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="payment-amount" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Payment Amount (₱)
-                  </Label>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="payment-amount" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Payment Amount (₱)
+                    </Label>
+                    {paymentAmountNum > 0 && (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        Remaining Debt: ₱{remainingDebtPreview.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     id="payment-amount"
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
+                    min="1"
+                    max={selectedCustomer.current_balance}
                     required
                     placeholder="0.00"
                     value={paymentAmount}
                     onFocus={(event) => event.target.select()}
                     onChange={(event) => setPaymentAmount(event.target.value)}
-                    className="h-11 min-h-[44px] rounded-xl text-base font-semibold"
+                    className="h-12 min-h-[44px] rounded-xl text-lg font-black tabular-nums focus-visible:ring-primary/40 bg-background"
                   />
-                  {selectedCustomer.current_balance > 0 && (
+                  
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider mr-1">Quick Set:</span>
+                    {[50, 100, 200, 500].map((preset) => {
+                      if (preset > selectedCustomer.current_balance) return null;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setPaymentAmount(preset.toFixed(2))}
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border/60 bg-muted/30 hover:bg-muted hover:border-primary/50 text-foreground transition-all cursor-pointer active:scale-95 motion-reduce:transform-none tabular-nums"
+                        >
+                          ₱{preset}
+                        </button>
+                      );
+                    })}
                     <button
                       type="button"
                       onClick={() => setPaymentAmount(selectedCustomer.current_balance.toFixed(2))}
-                      className="text-xs text-primary font-bold hover:underline cursor-pointer pt-1"
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer active:scale-95 motion-reduce:transform-none tabular-nums"
                     >
-                      Set to Full Amount (₱{selectedCustomer.current_balance.toFixed(2)})
+                      Full Amount (₱{selectedCustomer.current_balance.toFixed(2)})
                     </button>
-                  )}
+                  </div>
                 </div>
-                <div className="space-y-1.5">
+
+                <div className="space-y-1.5 pt-1">
                   <Label htmlFor="payment-notes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Notes / Reference (Optional)
                   </Label>
                   <Input
                     id="payment-notes"
-                    placeholder="e.g. Partial cash payment"
+                    placeholder="e.g. Cash payment, GCash ref #..."
                     value={paymentNotes}
                     onChange={(event) => setPaymentNotes(event.target.value)}
-                    className="h-11 min-h-[44px] rounded-xl text-sm"
+                    className="h-11 min-h-[44px] rounded-xl text-sm bg-background font-medium focus-visible:ring-primary/40"
                   />
                 </div>
               </div>
-              <DialogFooter className="pt-2 gap-2 sm:gap-0">
+
+              <DialogFooter className="pt-3 border-t border-border/50 gap-2 sm:gap-0">
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="h-11 min-h-[44px] rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer w-full sm:w-auto"
+                  className="h-11 min-h-[44px] rounded-xl font-bold border-border/60 hover:bg-muted cursor-pointer w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit"
-                  className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer w-full sm:w-auto"
+                  disabled={paymentAmountNum <= 0 || paymentAmountNum > selectedCustomer.current_balance}
+                  className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-sm cursor-pointer w-full sm:w-auto active:scale-[0.98] transition-transform motion-reduce:transform-none disabled:opacity-50"
                 >
-                  Submit Payment
+                  Confirm Payment
                 </Button>
               </DialogFooter>
             </form>
@@ -773,73 +997,104 @@ export default function CustomerLedger(): React.JSX.Element {
 
       {/* Add Customer Dialog */}
       <Dialog open={isAddCustomerModalOpen} onOpenChange={setIsAddCustomerModalOpen}>
-        <DialogContent showCloseButton={false} className="sm:max-w-md w-[95vw] rounded-2xl p-5 sm:p-6">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-lg font-bold">Add New Customer</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddCustomer} className="space-y-4 pt-2">
+        <DialogContent showCloseButton={false} className="sm:max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden border-border bg-card shadow-2xl">
+          <div className="bg-primary/10 p-5 sm:p-6 border-b border-primary/20">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
+                Register New Customer
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add a regular customer to your store ledger to enable trust-based utang accounts.
+            </p>
+          </div>
+
+          <form onSubmit={handleAddCustomer} className="p-5 sm:p-6 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div className="space-y-1.5">
-                <Label htmlFor="cust-first-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">First Name</Label>
+                <Label htmlFor="cust-first-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  First Name <span className="text-rose-500">*</span>
+                </Label>
                 <Input
                   id="cust-first-name"
                   required
                   placeholder="Juan"
                   value={newCustomer.first_name}
                   onChange={(event) => setNewCustomer({ ...newCustomer, first_name: event.target.value })}
-                  className="h-11 min-h-[44px] rounded-xl text-sm"
+                  className="h-11 min-h-[44px] rounded-xl text-sm font-medium bg-background focus-visible:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cust-last-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Last Name</Label>
+                <Label htmlFor="cust-last-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Last Name <span className="text-rose-500">*</span>
+                </Label>
                 <Input
                   id="cust-last-name"
                   required
                   placeholder="Dela Cruz"
                   value={newCustomer.last_name}
                   onChange={(event) => setNewCustomer({ ...newCustomer, last_name: event.target.value })}
-                  className="h-11 min-h-[44px] rounded-xl text-sm"
+                  className="h-11 min-h-[44px] rounded-xl text-sm font-medium bg-background focus-visible:ring-primary/40"
                 />
               </div>
             </div>
+
+            {isDuplicateCustomer && (
+              <p className="text-xs text-rose-500 font-semibold">A customer with this name is already registered.</p>
+            )}
+
             <div className="space-y-1.5">
-              <Label htmlFor="cust-phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+              <Label htmlFor="cust-phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Phone Number (Optional)
+              </Label>
               <Input
                 id="cust-phone"
+                type="tel"
+                inputMode="tel"
                 placeholder="09123456789"
                 value={newCustomer.phone_number}
                 onChange={(event) => setNewCustomer({ ...newCustomer, phone_number: event.target.value })}
-                className="h-11 min-h-[44px] rounded-xl text-sm"
+                className="h-11 min-h-[44px] rounded-xl text-sm font-medium bg-background focus-visible:ring-primary/40"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="cust-credit-limit" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Credit Limit (₱)</Label>
+              <Label htmlFor="cust-credit-limit" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Default Credit Limit (₱)
+              </Label>
               <Input
                 id="cust-credit-limit"
                 type="number"
+                inputMode="numeric"
                 required
                 min="0"
                 step="50"
                 value={newCustomer.credit_limit}
                 onFocus={(event) => event.target.select()}
                 onChange={(event) => setNewCustomer({ ...newCustomer, credit_limit: Number(event.target.value) })}
-                className="h-11 min-h-[44px] rounded-xl text-sm"
+                className="h-11 min-h-[44px] rounded-xl text-sm font-bold bg-background tabular-nums focus-visible:ring-primary/40"
               />
+              <p className="text-[11px] text-muted-foreground">
+                Maximum allowable credit balance before POS raises an over-limit warning.
+              </p>
             </div>
-            <DialogFooter className="pt-2 gap-2 sm:gap-2">
+
+            <DialogFooter className="pt-3 border-t border-border/50 gap-2 sm:gap-0">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setIsAddCustomerModalOpen(false)}
-                className="h-11 min-h-[44px] rounded-xl font-bold border-border/50 hover:bg-accent cursor-pointer w-full sm:w-auto"
+                className="h-11 min-h-[44px] rounded-xl font-bold border-border/60 hover:bg-muted cursor-pointer w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit"
-                className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 cursor-pointer w-full sm:w-auto"
+                disabled={isDuplicateCustomer || !newCustomer.first_name.trim() || !newCustomer.last_name.trim()}
+                className="h-11 min-h-[44px] rounded-xl font-bold bg-primary hover:bg-primary/90 text-white shadow-sm cursor-pointer w-full sm:w-auto active:scale-[0.98] transition-transform motion-reduce:transform-none disabled:opacity-50"
               >
-                Save Customer
+                Register Customer
               </Button>
             </DialogFooter>
           </form>
