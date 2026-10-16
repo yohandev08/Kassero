@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import type { Sale } from '@/types';
-import { fetchSalesWithItems } from '@/services/sales.Service';
+import { fetchSalesWithItems, fetchSalesSummary, type SalesSummaryData } from '@/services/sales.Service';
 import {
   TrendingUp,
   DollarSign,
@@ -18,8 +18,11 @@ import {
   Coins,
   Smartphone,
   ArrowUpRight,
+  Lock,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 // --- shadcn/ui components ---
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,7 +36,9 @@ type TimeRange = 'all' | 'today' | 'week' | 'month';
 type PaymentFilter = 'all' | 'Cash' | 'Utang' | 'Digital';
 
 export default function SalesAnalytics(): React.JSX.Element {
+  const { isSuperAdmin, loading: authLoading } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [summary, setSummary] = useState<SalesSummaryData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
@@ -43,74 +48,87 @@ export default function SalesAnalytics(): React.JSX.Element {
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const fetchSalesData = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await fetchSalesWithItems();
+  const getStartDateForRange = (range: TimeRange): string | undefined => {
+    const now = new Date();
+    if (range === 'today') {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    }
+    if (range === 'week') {
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    }
+    if (range === 'month') {
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+    return undefined;
+  };
 
-    if (error) {
-      console.error('Error fetching sales analytics:', error);
+  const fetchSalesData = useCallback(async (range: TimeRange) => {
+    if (authLoading) return;
+    if (!isSuperAdmin) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const startDate = getStartDateForRange(range);
+
+    const [summaryRes, salesRes] = await Promise.all([
+      fetchSalesSummary({ startDate }),
+      fetchSalesWithItems({
+        startDate,
+        limit: range === 'all' ? 200 : undefined,
+      }),
+    ]);
+
+    if (summaryRes.error) {
+      console.error('Error fetching sales summary:', summaryRes.error);
+    } else if (summaryRes.data) {
+      setSummary(summaryRes.data as unknown as SalesSummaryData);
+    }
+
+    if (salesRes.error) {
+      console.error('Error fetching sales analytics:', salesRes.error);
     } else {
-      setSales((data as unknown as Sale[]) || []);
+      setSales((salesRes.data as unknown as Sale[]) || []);
     }
     setLoading(false);
-  }, []);
+  }, [isSuperAdmin, authLoading]);
 
   useEffect(() => {
-    fetchSalesData();
-  }, [fetchSalesData]);
+    fetchSalesData(timeRange);
+  }, [timeRange, fetchSalesData]);
 
   // Reset pagination on filter or search change
   useEffect(() => {
     setCurrentPage(1);
   }, [timeRange, paymentFilter, deferredSearchQuery]);
 
-  // 1. Filter Sales by Time Range
-  const salesByTime = useMemo(() => {
-    if (timeRange === 'all') return sales;
-    const now = new Date();
+  // Sales are already scoped to the selected time range from the database query
+  const salesByTime = sales;
 
-    if (timeRange === 'today') {
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      return sales.filter(s => new Date(s.created_at).getTime() >= startOfToday);
-    }
-
-    if (timeRange === 'week') {
-      const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
-      return sales.filter(s => new Date(s.created_at).getTime() >= sevenDaysAgo);
-    }
-
-    if (timeRange === 'month') {
-      const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-      return sales.filter(s => new Date(s.created_at).getTime() >= thirtyDaysAgo);
-    }
-
-    return sales;
-  }, [sales, timeRange]);
-
-  // 2. Compute Financial Metrics & Top Products (Single-Pass Memo)
+  // Compute Financial Metrics & Top Products
   const analytics = useMemo(() => {
-    let totalRevenue = 0;
-    let totalProfit = 0;
-    let cashSales = 0;
-    let utangSales = 0;
-    let digitalSales = 0;
+    let fallbackRevenue = 0;
+    let fallbackProfit = 0;
+    let fallbackCash = 0;
+    let fallbackUtang = 0;
+    let fallbackDigital = 0;
 
     const productSalesMap: Record<string, { quantity: number; revenue: number; profit: number }> = {};
 
     for (let i = 0; i < salesByTime.length; i++) {
       const sale = salesByTime[i];
-      totalRevenue += sale.total_amount;
+      fallbackRevenue += sale.total_amount;
 
-      if (sale.payment_type === 'Cash') cashSales += sale.total_amount;
-      else if (sale.payment_type === 'Utang') utangSales += sale.total_amount;
-      else if (sale.payment_type === 'Digital') digitalSales += sale.total_amount;
+      if (sale.payment_type === 'Cash') fallbackCash += sale.total_amount;
+      else if (sale.payment_type === 'Utang') fallbackUtang += sale.total_amount;
+      else if (sale.payment_type === 'Digital') fallbackDigital += sale.total_amount;
 
       if (sale.sale_items) {
         for (let j = 0; j < sale.sale_items.length; j++) {
           const item = sale.sale_items[j];
           const cost = item.products?.cost_price || 0;
           const itemProfit = item.subtotal - item.quantity * cost;
-          totalProfit += itemProfit;
+          fallbackProfit += itemProfit;
 
           const prodName = item.products?.product_name || 'General Item';
           if (!productSalesMap[prodName]) {
@@ -121,7 +139,31 @@ export default function SalesAnalytics(): React.JSX.Element {
           productSalesMap[prodName].profit += itemProfit;
         }
       }
+
+      if (sale.digital_services) {
+        for (const ds of sale.digital_services) {
+          const fee = Number(ds.convenience_fee) || 0;
+          const amount = Number(ds.transaction_amount) || 0;
+          const serviceTotal = amount + fee;
+          fallbackProfit += fee;
+
+          const serviceName = `[Digital] ${ds.service_type}`;
+          if (!productSalesMap[serviceName]) {
+            productSalesMap[serviceName] = { quantity: 0, revenue: 0, profit: 0 };
+          }
+          productSalesMap[serviceName].quantity += 1;
+          productSalesMap[serviceName].revenue += serviceTotal;
+          productSalesMap[serviceName].profit += fee;
+        }
+      }
     }
+
+    const totalRevenue = summary ? Number(summary.total_revenue) : fallbackRevenue;
+    const totalProfit = summary ? Number(summary.total_profit) : fallbackProfit;
+    const cashSales = summary ? Number(summary.cash_sales) : fallbackCash;
+    const utangSales = summary ? Number(summary.utang_sales) : fallbackUtang;
+    const digitalSales = summary ? Number(summary.digital_sales) : fallbackDigital;
+    const totalTransactions = summary ? Number(summary.total_transactions) : salesByTime.length;
 
     const profitMarginPercent = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
     const cashPercent = totalRevenue > 0 ? (cashSales / totalRevenue) * 100 : 0;
@@ -147,9 +189,9 @@ export default function SalesAnalytics(): React.JSX.Element {
       digitalPercent,
       topProducts,
       maxSold,
-      totalTransactions: salesByTime.length,
+      totalTransactions,
     };
-  }, [salesByTime]);
+  }, [salesByTime, summary]);
 
   // 3. Filter Sales for Table (Payment type + Search query)
   const filteredSales = useMemo(() => {
@@ -181,6 +223,29 @@ export default function SalesAnalytics(): React.JSX.Element {
       currentPage * ITEMS_PER_PAGE
     );
   }, [filteredSales, currentPage]);
+
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground font-medium">Verifying access privileges...</p>
+      </div>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
+        <div className="bg-destructive/10 p-4 rounded-2xl text-destructive">
+          <Lock className="w-12 h-12" />
+        </div>
+        <h2 className="text-xl font-black text-foreground">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Sales & Profit Analytics are restricted to Store Superadmins. Please contact the store owner.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 p-1 sm:p-2 pb-8">

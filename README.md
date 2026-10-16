@@ -1,77 +1,75 @@
-# React + TypeScript + Vite
+# Kassero
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modern Point of Sale (POS), inventory management, customer credit (*utang*) ledger, and sales analytics system tailored for retail and sari-sari stores.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Frontend**: React 19, TypeScript, Tailwind CSS
+- **Backend / Database**: [Supabase](https://supabase.com/) (PostgreSQL with Row Level Security, atomic checkout RPCs, and soft-delete safeguards)
+- **Testing**: [Vitest](https://vitest.dev/)
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- **Node.js**: v20 or higher
+- **Package Manager**: npm (v10+)
+- **Supabase Account**: A new or existing Supabase project
 
-Note: This will impact Vite dev & build performances.
+## Getting Started
 
-## Expanding the ESLint configuration
+### 1. Clone & Install Dependencies
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+git clone <repository-url>
+cd Kassero
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Configure Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env.local` file in the root directory:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-publishable-key>
+```
+
+### 3. Initialize Database Schema
+
+Open your Supabase project dashboard, navigate to the **SQL Editor**, and execute the full schema definition located at:
 
 ```
+supabase/schema.sql
+```
+
+This creates:
+- Core tables (`products`, `sales`, `sale_items`, `customers`, `utang_transactions`, `payments`, `digital_services`, `profiles`).
+- Row Level Security (RLS) policies for authenticated staff and superadmins.
+- Atomic stored procedures (`complete_checkout`, `record_customer_payment`, `adjust_stock_quantity`, `archive_customers`, `get_sales_summary`).
+- Performance indexes and auto-provisioning triggers.
+
+### 4. Run Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Available Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Starts the Next.js development server |
+| `npm test` | Runs the Vitest automated unit test suite |
+| `npm run build` | Compiles the production build |
+| `npm run start` | Runs the compiled Next.js production server |
+| `npm run lint` | Runs Next.js ESLint checks |
+
+## Key Features
+
+- **Atomic Multi-Step Checkout**: Transactional checkout bundling sale creation, stock deductions, digital services, and utang balances via database RPC.
+- **Customer Credit (Utang) Ledger**: Customer debt tracking, credit limit enforcement, partial/full payment history, and soft-deletion protections.
+- **Inventory Tracking**: Stock counts, low-stock warnings, reorder thresholds, and quick restock actions.
+- **Sales & Profit Analytics**: Server-side aggregated revenue, profit margins, payment method breakdowns, and PDF receipt downloads.
+- **Role-Based Access Control**: Staff accounts (`cashier`, `admin`, `superadmin`) with secure access rules.

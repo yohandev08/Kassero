@@ -51,6 +51,14 @@ export async function archiveProducts(productIds: number[]) {
     .in('product_id', productIds);
 }
 
+/** Atomically adjust product stock in Postgres (+delta for restock, -delta for deduction) */
+export async function adjustStockQuantity(productId: number, quantityDelta: number) {
+  return supabase.rpc('adjust_stock_quantity', {
+    p_product_id: productId,
+    p_quantity_delta: quantityDelta,
+  });
+}
+
 /** Update the stock quantity of a product (restock or deduction) */
 export async function updateStockQuantity(productId: number, newQuantity: number) {
   return supabase
@@ -59,16 +67,4 @@ export async function updateStockQuantity(productId: number, newQuantity: number
     .eq('product_id', productId);
 }
 
-/** Insert a digital service as a pseudo-product and return the row */
-export async function addDigitalService(service: {
-  product_name: string;
-  cost_price: number;
-  selling_price: number;
-  stock_quantity: number;
-}) {
-  return supabase
-    .from('products')
-    .insert([service])
-    .select()
-    .single();
-}
+

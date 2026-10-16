@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import type { Customer, UtangTransaction } from '@/types';
-import { fetchCustomers as fetchCustomersService, updateCustomerBalance, addCustomer } from '@/services/customer.Service';
-import { fetchUtangHistory, recordPayment, markUtangAsPaid, fetchPayments } from '@/services/payment.Service';
+import { fetchCustomers as fetchCustomersService, addCustomer } from '@/services/customer.Service';
+import { fetchUtangHistory, recordCustomerPayment, fetchPayments } from '@/services/payment.Service';
 import { useAlert } from '@/context/AlertContext';
 import {
   User,
   Search,
-  DollarSign,
+  PhilippinePeso,
   Trash2,
   X,
   UserPlus,
@@ -204,24 +204,16 @@ export default function CustomerLedger(): React.JSX.Element {
     }
 
     try {
-      const { error: paymentError } = await recordPayment({
+      const { data, error: paymentError } = await recordCustomerPayment({
         customer_id: selectedCustomer.customer_id,
         amount_paid: amountPaid,
         notes: paymentNotes.trim() || 'Cash Utang Payment',
       });
       if (paymentError) throw paymentError;
 
-      const newBalance = Math.max(0, selectedCustomer.current_balance - amountPaid);
-      const { error: customerError } = await updateCustomerBalance(
-        selectedCustomer.customer_id,
-        newBalance
-      );
-
-      if (customerError) throw customerError;
-
-      if (newBalance === 0) {
-        await markUtangAsPaid(selectedCustomer.customer_id);
-      }
+      const newBalance = typeof data?.new_balance === 'number'
+        ? data.new_balance
+        : Math.max(0, selectedCustomer.current_balance - amountPaid);
 
       showAlert(`Payment of ₱${amountPaid.toFixed(2)} recorded successfully!`);
 
@@ -262,10 +254,25 @@ export default function CustomerLedger(): React.JSX.Element {
 
   const removeSelectedCustomers = useCallback(async () => {
     if (selectedForRemoval.size === 0) return;
-    showConfirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)? This removes their account from directory.`, async () => {
+
+    const selectedArray = Array.from(selectedForRemoval);
+    const debtors = customers.filter(
+      c => selectedForRemoval.has(c.customer_id) && (c.current_balance || 0) > 0
+    );
+
+    if (debtors.length > 0) {
+      const names = debtors.map(d => `${d.first_name} ${d.last_name}`).slice(0, 3).join(', ');
+      const extra = debtors.length > 3 ? ` and ${debtors.length - 3} others` : '';
+      return showAlert(
+        `Cannot delete customer(s) with an outstanding debt balance: ${names}${extra}. Please settle their unpaid utang before deleting.`,
+        'Outstanding Debt'
+      );
+    }
+
+    showConfirm(`Are you sure you want to delete ${selectedForRemoval.size} customer(s)? This removes their account from the directory while safely preserving past transaction history.`, async () => {
       try {
-        const { deleteCustomers } = await import('@/services/customer.Service');
-        const { error } = await deleteCustomers(Array.from(selectedForRemoval));
+        const { archiveCustomers } = await import('@/services/customer.Service');
+        const { error } = await archiveCustomers(selectedArray);
         if (error) throw error;
 
         setCustomers(prev => prev.filter(c => !selectedForRemoval.has(c.customer_id)));
@@ -276,12 +283,13 @@ export default function CustomerLedger(): React.JSX.Element {
           setMobileView('list');
         }
         exitRemoveMode();
+        showAlert(`Successfully removed ${selectedArray.length} customer(s) from directory.`);
       } catch (error: any) {
         console.error('Delete error:', error);
         showAlert('Failed to delete customers: ' + error.message);
       }
     });
-  }, [selectedForRemoval, showConfirm, showAlert, selectedCustomer, exitRemoveMode]);
+  }, [selectedForRemoval, customers, showConfirm, showAlert, selectedCustomer, exitRemoveMode]);
 
   const handleAddCustomer = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
@@ -383,17 +391,28 @@ export default function CustomerLedger(): React.JSX.Element {
                 </span>
               </div>
             </CardHeader>
-            {event.sales?.sale_items && event.sales.sale_items.length > 0 && (
+            {((event.sales?.sale_items && event.sales.sale_items.length > 0) ||
+              (event.sales?.digital_services && event.sales.digital_services.length > 0)) && (
               <CardContent className="p-3.5 sm:p-4 pt-0">
                 <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-2 border border-border/40">
                   <div className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Purchased Items</div>
-                  {event.sales.sale_items.map((item: any, index: number) => (
+                  {event.sales.sale_items?.map((item: any, index: number) => (
                     <div key={index} className="flex justify-between items-center gap-2">
                       <span className="truncate text-foreground font-medium">
                         {item.quantity}x {item.products?.product_name || 'Item'}
                       </span>
                       <span className="shrink-0 font-bold text-muted-foreground tabular-nums">
                         ₱{item.subtotal.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                  {event.sales.digital_services?.map((ds: any, index: number) => (
+                    <div key={`ds-${index}`} className="flex justify-between items-center gap-2">
+                      <span className="truncate text-cyan-600 dark:text-cyan-400 font-medium">
+                        1x [Digital] {ds.service_type} {ds.account_number_phone ? `(${ds.account_number_phone})` : ''}
+                      </span>
+                      <span className="shrink-0 font-bold text-muted-foreground tabular-nums">
+                        ₱{(Number(ds.transaction_amount) + Number(ds.convenience_fee)).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -792,7 +811,7 @@ export default function CustomerLedger(): React.JSX.Element {
                       : "opacity-60 cursor-not-allowed"
                   )}
                 >
-                  <DollarSign className="w-4 h-4 shrink-0" />
+                  <PhilippinePeso className="w-4 h-4 shrink-0" />
                   <span>Record Payment</span>
                 </Button>
               </div>
@@ -882,7 +901,7 @@ export default function CustomerLedger(): React.JSX.Element {
           <div className="bg-primary/10 p-5 sm:p-6 border-b border-primary/20">
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-xl font-black text-primary flex items-center gap-2">
-                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+                <PhilippinePeso className="w-5 h-5 sm:w-6 sm:h-6" />
                 Record Utang Payment
               </DialogTitle>
             </DialogHeader>

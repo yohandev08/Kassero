@@ -7,7 +7,7 @@ import {
   addProduct as addProductService,
   updateProduct,
   archiveProducts,
-  updateStockQuantity,
+  adjustStockQuantity,
 } from '@/services/product.Service';
 import { generatePurchaseOrderPDF } from '@/lib/pdfGenerator';
 import { useAlert } from '@/context/AlertContext';
@@ -197,9 +197,7 @@ export default function InventoryManager(): React.JSX.Element {
       return showAlert('Please enter a valid stock quantity.');
     }
 
-    const updatedQuantity = selectedProduct.stock_quantity + quantityToAdd;
-
-    const { error } = await updateStockQuantity(selectedProduct.product_id, updatedQuantity);
+    const { error } = await adjustStockQuantity(selectedProduct.product_id, quantityToAdd);
 
     if (error) {
       showAlert('Failed to restock product: ' + error.message);

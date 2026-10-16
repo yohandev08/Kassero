@@ -4,17 +4,18 @@ import React, { useEffect, useMemo, useRef, useState, useDeferredValue, useCallb
 import type { Product, Customer, CartItem } from '@/types';
 import {
   fetchProducts as fetchProductsService,
-  addDigitalService,
-  updateStockQuantity,
 } from '@/services/product.Service';
 import {
   fetchCustomers as fetchCustomersService,
-  updateCustomerBalance,
 } from '@/services/customer.Service';
-import { createSale, insertSaleItems } from '@/services/sales.Service';
-import { recordUtangTransaction } from '@/services/payment.Service';
+import { completeCheckout } from '@/services/sales.Service';
 import { useAlert } from '@/context/AlertContext';
 import { cn } from '@/lib/utils';
+import {
+  calculateCartTotals,
+  calculateChange,
+  validateCreditLimit,
+} from '@/lib/retail';
 import {
   ShoppingCart,
   User,
@@ -173,27 +174,21 @@ export default function POS(): React.JSX.Element {
     return map;
   }, [products]);
 
-  // --- Derived Calculations (Single-pass memoization) ---
-  const { totalAmount, totalItemCount } = useMemo(() => {
-    let amount = 0;
-    let count = 0;
-    for (let i = 0; i < cart.length; i++) {
-      amount += cart[i].subtotal;
-      count += cart[i].quantity;
-    }
-    return { totalAmount: amount, totalItemCount: count };
-  }, [cart]);
+  // --- Derived Calculations (Centralized retail & financial logic) ---
+  const { totalAmount, totalItemCount } = useMemo(
+    () => calculateCartTotals(cart),
+    [cart]
+  );
 
-  const tenderedNumber = parseFloat(amountTendered);
-  const isTenderedValid = !isNaN(tenderedNumber) && tenderedNumber >= totalAmount;
-  const changeGiven =
-    paymentType === 'Cash' && amountTendered && isTenderedValid
-      ? Math.max(0, tenderedNumber - totalAmount)
-      : 0;
+  const cashChange = useMemo(
+    () => calculateChange(amountTendered, totalAmount),
+    [amountTendered, totalAmount]
+  );
 
-  const isCashInvalid =
-    paymentType === 'Cash' &&
-    (!amountTendered.trim() || isNaN(tenderedNumber) || tenderedNumber < totalAmount);
+  const tenderedNumber = cashChange.tendered;
+  const isTenderedValid = cashChange.isValid;
+  const changeGiven = paymentType === 'Cash' ? cashChange.change : 0;
+  const isCashInvalid = paymentType === 'Cash' && !cashChange.isValid;
 
   const selectedCustomerObj = useMemo(() => {
     if (!selectedCustomer || selectedCustomer === 'walk-in') return undefined;
@@ -201,6 +196,11 @@ export default function POS(): React.JSX.Element {
       (customer) => customer.customer_id.toString() === selectedCustomer
     );
   }, [customers, selectedCustomer]);
+
+  const creditStatus = useMemo(() => {
+    if (!selectedCustomerObj) return null;
+    return validateCreditLimit(selectedCustomerObj, totalAmount);
+  }, [selectedCustomerObj, totalAmount]);
 
   const isCustomerDisallowedUtang =
     paymentType === 'Utang' && !!selectedCustomerObj && !selectedCustomerObj.is_allowed_utang;
@@ -265,19 +265,27 @@ export default function POS(): React.JSX.Element {
     const fee = parseFloat(convenienceFee) || 0;
     const totalServiceCost = transactionAmount + fee;
 
-    const { data, error } = await addDigitalService({
+    const digitalItem: CartItem = {
+      product_id: -Date.now(),
       product_name: `[Digital] ${serviceType} - ${serviceAccount.trim() || 'No Ref'}`,
+      category: 'Digital Service',
+      unit_type: 'service',
       cost_price: transactionAmount,
       selling_price: totalServiceCost,
-      stock_quantity: 999,
-    });
+      stock_quantity: 9999,
+      quantity: 1,
+      subtotal: totalServiceCost,
+      is_digital: true,
+      digital_service: {
+        service_type: serviceType,
+        account_number_phone: serviceAccount.trim() || undefined,
+        transaction_amount: transactionAmount,
+        convenience_fee: fee,
+        reference_number: referenceNumber.trim() || undefined,
+      },
+    };
 
-    if (error) {
-      showAlert(`Failed to record digital service: ${error.message}. Please try again.`, 'Service Error');
-      return;
-    }
-
-    addToCart(data);
+    setCart((previousCart) => [...previousCart, digitalItem]);
     setServiceAccount('');
     setServiceAmount('');
     setReferenceNumber('');
@@ -390,17 +398,19 @@ export default function POS(): React.JSX.Element {
       return showAlert('Add at least one product or digital service before checking out.', 'Order Cart Empty');
     }
 
-    // Validate that cart items do not exceed available stock
+    // Validate that physical cart items do not exceed available stock
     for (const item of cart) {
       if (item.quantity <= 0) {
         return showAlert(`Please enter a valid quantity for "${item.product_name}".`, 'Invalid Quantity');
       }
-      const currentStock = productStockMap.get(item.product_id) ?? item.stock_quantity;
-      if (item.quantity > currentStock) {
-        return showAlert(
-          `Cannot checkout: quantity for "${item.product_name}" (${item.quantity}) exceeds available inventory (${currentStock}).`,
-          'Insufficient Stock'
-        );
+      if (!item.is_digital) {
+        const currentStock = productStockMap.get(item.product_id) ?? item.stock_quantity;
+        if (item.quantity > currentStock) {
+          return showAlert(
+            `Cannot checkout: quantity for "${item.product_name}" (${item.quantity}) exceeds available inventory (${currentStock}).`,
+            'Insufficient Stock'
+          );
+        }
       }
     }
 
@@ -437,58 +447,36 @@ export default function POS(): React.JSX.Element {
       const finalTendered = paymentType === 'Cash' ? parseFloat(amountTendered) : totalAmount;
       const finalChange = paymentType === 'Cash' ? Math.max(0, finalTendered - totalAmount) : 0;
 
-      // 1. Insert into SALES table (via service)
-      const { data: sale, error: saleError } = await createSale({
+      const physicalItems = cart.filter((item) => !item.is_digital);
+      const digitalItems = cart.filter((item) => item.is_digital && item.digital_service);
+
+      // Complete sale, insert line items, deduct stock, record digital services, and record utang in a single atomic transaction
+      const { data, error } = await completeCheckout({
         customer_id: selectedCustomer && selectedCustomer !== 'walk-in' ? parseInt(selectedCustomer, 10) : null,
         total_amount: totalAmount,
         payment_type: paymentType,
         amount_tendered: finalTendered,
         change_given: finalChange,
+        items: physicalItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.selling_price,
+          subtotal: item.subtotal,
+        })),
+        digital_services: digitalItems.map((item) => ({
+          service_type: item.digital_service!.service_type,
+          account_number_phone: item.digital_service!.account_number_phone || null,
+          transaction_amount: item.digital_service!.transaction_amount,
+          convenience_fee: item.digital_service!.convenience_fee,
+          reference_number: item.digital_service!.reference_number || null,
+        })),
       });
 
-      if (saleError) throw saleError;
-
-      // 2. Prepare & Insert SALE_ITEMS (via service)
-      const saleItems = cart.map((item) => ({
-        sale_id: sale.sale_id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.selling_price,
-        subtotal: item.subtotal,
-      }));
-
-      const { error: itemsError } = await insertSaleItems(saleItems);
-      if (itemsError) throw itemsError;
-
-      // 3. Deduct Stock Quantity for Each Product (via service)
-      for (const item of cart) {
-        const prod = products.find((p) => p.product_id === item.product_id);
-        const currentStock = prod ? prod.stock_quantity : item.stock_quantity;
-        await updateStockQuantity(item.product_id, Math.max(0, currentStock - item.quantity));
-      }
-
-      // 4. Handle Utang Recording if payment is Utang (via service)
-      if (paymentType === 'Utang' && selectedCustomer) {
-        const customerIdInt = parseInt(selectedCustomer, 10);
-
-        // Add Utang record
-        await recordUtangTransaction({
-          customer_id: customerIdInt,
-          sale_id: sale.sale_id,
-          amount: totalAmount,
-          status: 'Unpaid',
-        });
-
-        // Get current customer balance & update
-        const currentCustomer = customers.find((customer) => customer.customer_id === customerIdInt);
-        if (currentCustomer) {
-          await updateCustomerBalance(customerIdInt, (currentCustomer.current_balance || 0) + totalAmount);
-        }
-      }
+      if (error) throw error;
 
       // Record last completed sale summary for instant visual confirmation
       setLastSale({
-        saleId: sale.sale_id,
+        saleId: data?.sale_id,
         total: totalAmount,
         paymentType: paymentType,
         tendered: finalTendered,
@@ -502,8 +490,8 @@ export default function POS(): React.JSX.Element {
         paymentType === 'Utang'
           ? `Utang sale of ₱${totalAmount.toFixed(2)} recorded to ${selectedCustomerObj?.first_name ?? 'customer'}'s account.`
           : paymentType === 'Cash' && finalChange > 0
-          ? `Sale completed. Return change (sukli) of ₱${finalChange.toFixed(2)} to customer.`
-          : `Sale of ₱${totalAmount.toFixed(2)} completed successfully.`,
+            ? `Sale completed. Return change (sukli) of ₱${finalChange.toFixed(2)} to customer.`
+            : `Sale of ₱${totalAmount.toFixed(2)} completed successfully.`,
         'Sale Completed'
       );
 
@@ -674,16 +662,16 @@ export default function POS(): React.JSX.Element {
                         outOfStock
                           ? `${product.product_name} is out of stock`
                           : isMaxInCart
-                          ? `Maximum quantity of ${product.product_name} already in cart`
-                          : `Add ${product.product_name} to cart for ₱${product.selling_price.toFixed(2)}`
+                            ? `Maximum quantity of ${product.product_name} already in cart`
+                            : `Add ${product.product_name} to cart for ₱${product.selling_price.toFixed(2)}`
                       }
                       className={cn(
                         'group flex flex-col justify-between border transition-all duration-200 cursor-pointer rounded-xl p-3 sm:p-3.5 select-none bg-card relative overflow-hidden',
                         outOfStock || isMaxInCart
                           ? 'opacity-40 grayscale cursor-not-allowed bg-muted/20 border-border/50'
                           : itemInCart
-                          ? 'border-primary ring-1 ring-primary/30 bg-primary/[0.04] shadow-xs hover:border-primary hover:shadow-sm'
-                          : 'border-border/70 hover:border-primary/50 hover:bg-muted/30 hover:shadow-xs active:scale-[0.99]'
+                            ? 'border-primary ring-1 ring-primary/30 bg-primary/[0.04] shadow-xs hover:border-primary hover:shadow-sm'
+                            : 'border-border/70 hover:border-primary/50 hover:bg-muted/30 hover:shadow-xs active:scale-[0.99]'
                       )}
                     >
                       <div>
@@ -739,8 +727,8 @@ export default function POS(): React.JSX.Element {
                             outOfStock || isMaxInCart
                               ? 'text-muted-foreground/30'
                               : itemInCart
-                              ? 'bg-primary text-primary-foreground shadow-xs'
-                              : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground group-active:scale-90'
+                                ? 'bg-primary text-primary-foreground shadow-xs'
+                                : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground group-active:scale-90'
                           )}
                         >
                           <Plus className="w-4 h-4" />
@@ -1019,16 +1007,14 @@ export default function POS(): React.JSX.Element {
                           <span>Customer is flagged as not allowed for credit.</span>
                         </p>
                       )}
-                      {selectedCustomerObj.is_allowed_utang &&
-                        selectedCustomerObj.current_balance + totalAmount > selectedCustomerObj.credit_limit && (
-                          <p className="text-amber-800 dark:text-amber-300 font-semibold text-xs pt-0.5 flex items-center gap-1">
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" aria-hidden="true" />
-                            <span>
-                              Sale will exceed credit limit by ₱
-                              {((selectedCustomerObj.current_balance + totalAmount) - selectedCustomerObj.credit_limit).toFixed(2)}
-                            </span>
-                          </p>
-                        )}
+                      {selectedCustomerObj.is_allowed_utang && creditStatus?.willExceed && (
+                        <p className="text-amber-800 dark:text-amber-300 font-semibold text-xs pt-0.5 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                          <span>
+                            Sale will exceed credit limit by ₱{creditStatus.exceededBy.toFixed(2)}
+                          </span>
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1123,7 +1109,7 @@ export default function POS(): React.JSX.Element {
                       className="rounded-lg text-xs font-bold data-[state=active]:bg-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Digital (GCash / Maya)</span>
+                      <span>Digital (GCash)</span>
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -1262,8 +1248,8 @@ export default function POS(): React.JSX.Element {
                 paymentType === 'Utang'
                   ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
                   : paymentType === 'Digital'
-                  ? 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/30'
-                  : 'bg-primary hover:bg-primary/90 shadow-primary/30'
+                    ? 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/30'
+                    : 'bg-primary hover:bg-primary/90 shadow-primary/30'
               )}
               onClick={handleCheckout}
               disabled={isCheckoutDisabled}
@@ -1281,10 +1267,10 @@ export default function POS(): React.JSX.Element {
                 {isCheckingOut
                   ? 'Recording sale...'
                   : paymentType === 'Utang'
-                  ? `Record Utang Sale • ₱${totalAmount.toFixed(2)}`
-                  : paymentType === 'Digital'
-                  ? `Complete Digital Sale • ₱${totalAmount.toFixed(2)}`
-                  : `Complete Cash Sale • ₱${totalAmount.toFixed(2)}`}
+                    ? `Record Utang Sale • ₱${totalAmount.toFixed(2)}`
+                    : paymentType === 'Digital'
+                      ? `Complete Digital Sale • ₱${totalAmount.toFixed(2)}`
+                      : `Complete Cash Sale • ₱${totalAmount.toFixed(2)}`}
               </span>
             </Button>
 

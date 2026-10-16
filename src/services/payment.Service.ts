@@ -22,11 +22,30 @@ export async function fetchUtangHistory(customerId: number) {
           unit_price,
           subtotal,
           products ( product_name )
+        ),
+        digital_services (
+          service_type,
+          account_number_phone,
+          transaction_amount,
+          convenience_fee
         )
       )
     `)
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false });
+}
+
+/** Atomically record customer payment and decrement balance in Postgres */
+export async function recordCustomerPayment(payment: {
+  customer_id: number;
+  amount_paid: number;
+  notes: string;
+}) {
+  return supabase.rpc('record_customer_payment', {
+    p_customer_id: payment.customer_id,
+    p_amount_paid: payment.amount_paid,
+    p_notes: payment.notes,
+  });
 }
 
 /** Insert a payment record */

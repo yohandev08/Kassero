@@ -1,68 +1,127 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShoppingCart, Users, Package, BarChart3, Store, Menu, X as CloseIcon, LogOut } from 'lucide-react';
-import { Moon, Sun } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  ShoppingCart,
+  Users,
+  Package,
+  BarChart3,
+  Store,
+  Menu,
+  X as CloseIcon,
+  LogOut,
+  Moon,
+  Sun,
+  Crown,
+  ShieldCheck,
+  User as UserIcon,
+  ShieldAlert,
+} from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { buttonVariants, Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { user, profile, role, isSuperAdmin, isAdmin, isCashier, loading: authLoading, signOut } = useAuth();
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setMounted(true);
+  }, []);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setIsAuthenticated(false);
-        router.push('/');
-      } else {
-        setIsAuthenticated(true);
+  // Route Access Guard
+  useEffect(() => {
+    if (authLoading) return;
+
+    // Not authenticated -> redirect to login
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+
+    // Cashier restrictions: Only POS and Ledger
+    if (isCashier) {
+      if (pathname === '/inventory' || pathname === '/analytics' || pathname === '/users') {
+        router.replace('/pos');
       }
-    });
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setIsAuthenticated(false);
-        router.push('/');
-      } else {
-        setIsAuthenticated(true);
+    // Admin restrictions: POS, Ledger, Inventory. (No Analytics or Users)
+    if (role === 'admin') {
+      if (pathname === '/analytics' || pathname === '/users') {
+        router.replace('/pos');
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [router]);
+    }
+  }, [user, role, isCashier, authLoading, pathname, router]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
+    await signOut();
+    router.replace('/');
   };
 
-  if (isAuthenticated === null) {
+  // Loading state
+  if (authLoading || !user) {
     return (
       <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-foreground gap-3 select-none">
         <div className="bg-primary/10 p-3 rounded-2xl text-primary animate-pulse">
           <Store className="w-8 h-8" />
         </div>
-        <p className="text-xs font-bold text-muted-foreground animate-pulse">Verifying secure session...</p>
+        <p className="text-xs font-bold text-muted-foreground animate-pulse">
+          Verifying security privileges...
+        </p>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  // Navigation Items defined based on RBAC permissions
+  const navItems = [
+    {
+      href: '/pos',
+      label: 'POS / Counter Register',
+      shortLabel: 'POS',
+      icon: ShoppingCart,
+      allowed: true, // Everyone
+    },
+    {
+      href: '/ledger',
+      label: 'Utang & Customer Ledger',
+      shortLabel: 'Ledger',
+      icon: Users,
+      allowed: true, // Everyone
+    },
+    {
+      href: '/inventory',
+      label: 'Inventory & Restock',
+      shortLabel: 'Inventory',
+      icon: Package,
+      allowed: isAdmin || isSuperAdmin, // Admins & Superadmins
+    },
+    {
+      href: '/analytics',
+      label: 'Sales & Profit Analytics',
+      shortLabel: 'Analytics',
+      icon: BarChart3,
+      allowed: isSuperAdmin, // Superadmin only
+    },
+    {
+      href: '/users',
+      label: 'Staff & Role Management',
+      shortLabel: 'Staff',
+      icon: Crown,
+      allowed: isSuperAdmin, // Superadmin only
+    },
+  ];
+
+  const visibleNavItems = navItems.filter((item) => item.allowed);
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-background text-foreground pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
@@ -88,11 +147,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {pathname === '/ledger' && 'Utang & Customer Ledger'}
               {pathname === '/inventory' && 'Inventory & Restock'}
               {pathname === '/analytics' && 'Sales & Profit Analytics'}
+              {pathname === '/users' && 'Staff & Role Management'}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Active User Role Badge */}
+          {isSuperAdmin && (
+            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 gap-1.5 font-bold text-xs py-1 px-2.5 shadow-xs">
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Owner</span>
+              <span>Superadmin</span>
+            </Badge>
+          )}
+          {role === 'admin' && (
+            <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 gap-1.5 font-bold text-xs py-1 px-2.5 shadow-xs">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Store</span>
+              <span>Admin</span>
+            </Badge>
+          )}
+          {isCashier && (
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 gap-1.5 font-bold text-xs py-1 px-2.5 shadow-xs">
+              <UserIcon className="w-3.5 h-3.5" />
+              <span>Cashier</span>
+            </Badge>
+          )}
+
           {/* Quick theme toggle */}
           <button
             onClick={toggleTheme}
@@ -103,7 +185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
 
           {/* Kassero Brand Badge */}
-          <div className="flex items-center gap-2 bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
+          <div className="hidden sm:flex items-center gap-2 bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
             <Store className="w-4 h-4 text-primary" />
             <span className="font-black text-xs sm:text-sm tracking-tight text-foreground">Kassero</span>
           </div>
@@ -113,56 +195,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* 2. MOBILE BOTTOM NAVIGATION BAR */}
       <nav 
         aria-label="Mobile Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border/50 grid grid-cols-4 items-center z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] h-[calc(3.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]"
+        className={cn(
+          "lg:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border/50 items-center z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] h-[calc(3.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] grid",
+          visibleNavItems.length === 2 && "grid-cols-2",
+          visibleNavItems.length === 3 && "grid-cols-3",
+          visibleNavItems.length === 4 && "grid-cols-4",
+          visibleNavItems.length === 5 && "grid-cols-5",
+        )}
       >
-        <Link 
-          href="/pos" 
-          className={cn(
-            'flex flex-col items-center justify-center h-full min-h-[44px] gap-1 text-[10px] font-bold transition-all active:scale-95 motion-reduce:transform-none select-none',
-            pathname === '/pos' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <div className={cn('p-1.5 rounded-xl transition-colors', pathname === '/pos' && 'bg-primary/15 text-primary')}>
-            <ShoppingCart className="w-5 h-5" />
-          </div>
-          <span>POS</span>
-        </Link>
-        <Link 
-          href="/ledger" 
-          className={cn(
-            'flex flex-col items-center justify-center h-full min-h-[44px] gap-1 text-[10px] font-bold transition-all active:scale-95 motion-reduce:transform-none select-none',
-            pathname === '/ledger' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <div className={cn('p-1.5 rounded-xl transition-colors', pathname === '/ledger' && 'bg-primary/15 text-primary')}>
-            <Users className="w-5 h-5" />
-          </div>
-          <span>Ledger</span>
-        </Link>
-        <Link 
-          href="/inventory" 
-          className={cn(
-            'flex flex-col items-center justify-center h-full min-h-[44px] gap-1 text-[10px] font-bold transition-all active:scale-95 motion-reduce:transform-none select-none',
-            pathname === '/inventory' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <div className={cn('p-1.5 rounded-xl transition-colors', pathname === '/inventory' && 'bg-primary/15 text-primary')}>
-            <Package className="w-5 h-5" />
-          </div>
-          <span>Inventory</span>
-        </Link>
-        <Link 
-          href="/analytics" 
-          className={cn(
-            'flex flex-col items-center justify-center h-full min-h-[44px] gap-1 text-[10px] font-bold transition-all active:scale-95 motion-reduce:transform-none select-none',
-            pathname === '/analytics' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <div className={cn('p-1.5 rounded-xl transition-colors', pathname === '/analytics' && 'bg-primary/15 text-primary')}>
-            <BarChart3 className="w-5 h-5" />
-          </div>
-          <span>Analytics</span>
-        </Link>
+        {visibleNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link 
+              key={item.href}
+              href={item.href} 
+              className={cn(
+                'flex flex-col items-center justify-center h-full min-h-[44px] gap-1 text-[10px] font-bold transition-all active:scale-95 motion-reduce:transform-none select-none',
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className={cn('p-1.5 rounded-xl transition-colors', isActive && 'bg-primary/15 text-primary')}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className="truncate max-w-[60px]">{item.shortLabel}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       {/* 3. SIDEBAR DRAWER OVERLAY */}
@@ -200,67 +260,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
+          {/* User Profile Card */}
+          <div className="p-3 rounded-2xl bg-sidebar-accent/50 border border-sidebar-border/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                {(profile?.full_name || user?.email || 'U')[0].toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-sidebar-foreground truncate">
+                  {profile?.full_name || user?.email?.split('@')[0]}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-sidebar-border/40 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Privilege</span>
+              {isSuperAdmin && (
+                <span className="text-[10px] font-black uppercase text-amber-500 flex items-center gap-1">
+                  <Crown className="w-3 h-3" /> Superadmin
+                </span>
+              )}
+              {role === 'admin' && (
+                <span className="text-[10px] font-black uppercase text-blue-500 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Store Admin
+                </span>
+              )}
+              {isCashier && (
+                <span className="text-[10px] font-black uppercase text-emerald-500 flex items-center gap-1">
+                  <UserIcon className="w-3 h-3" /> Cashier
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Navigation Links */}
           <nav className="space-y-1.5 flex flex-col">
-            <Link
-              href="/pos"
-              onClick={() => setIsSidebarOpen(false)}
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'w-full justify-start text-sm font-bold gap-3 h-12 min-h-[44px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.98] motion-reduce:transform-none',
-                pathname === '/pos'
-                  ? 'bg-primary text-white shadow-sm hover:bg-primary/90'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              )}
-            >
-              <ShoppingCart className="w-5 h-5 shrink-0" />
-              <span>POS / Counter Register</span>
-            </Link>
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
 
-            <Link
-              href="/ledger"
-              onClick={() => setIsSidebarOpen(false)}
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'w-full justify-start text-sm font-bold gap-3 h-12 min-h-[44px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.98] motion-reduce:transform-none',
-                pathname === '/ledger'
-                  ? 'bg-primary text-white shadow-sm hover:bg-primary/90'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              )}
-            >
-              <Users className="w-5 h-5 shrink-0" />
-              <span>Utang & Customer Ledger</span>
-            </Link>
-
-            <Link
-              href="/inventory"
-              onClick={() => setIsSidebarOpen(false)}
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'w-full justify-start text-sm font-bold gap-3 h-12 min-h-[44px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.98] motion-reduce:transform-none',
-                pathname === '/inventory'
-                  ? 'bg-primary text-white shadow-sm hover:bg-primary/90'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              )}
-            >
-              <Package className="w-5 h-5 shrink-0" />
-              <span>Inventory & Restock</span>
-            </Link>
-
-            <Link
-              href="/analytics"
-              onClick={() => setIsSidebarOpen(false)}
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'w-full justify-start text-sm font-bold gap-3 h-12 min-h-[44px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.98] motion-reduce:transform-none',
-                pathname === '/analytics'
-                  ? 'bg-primary text-white shadow-sm hover:bg-primary/90'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              )}
-            >
-              <BarChart3 className="w-5 h-5 shrink-0" />
-              <span>Sales & Profit Analytics</span>
-            </Link>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={cn(
+                    buttonVariants({ variant: 'ghost' }),
+                    'w-full justify-start text-sm font-bold gap-3 h-12 min-h-[44px] px-3.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.98] motion-reduce:transform-none',
+                    isActive
+                      ? 'bg-primary text-white shadow-sm hover:bg-primary/90'
+                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                  )}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
