@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { UserProfile, UserRole } from '@/types';
 
@@ -106,8 +105,8 @@ export async function updateUserRole(
 }
 
 /**
- * Create a new staff account without terminating the current Superadmin session.
- * Uses an isolated, non-persisted client instance.
+ * Create a new staff account via internal server API.
+ * Uses the Supabase Admin API with service role credentials on the server.
  */
 export async function createStaffAccount(
   email: string,
@@ -116,48 +115,22 @@ export async function createStaffAccount(
   role: UserRole
 ): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
 
-    // Non-persisting client so the superadmin isn't signed out
-    const isolatedClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
+    const response = await fetch('/api/staff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      body: JSON.stringify({ email, password, fullName, role }),
     });
 
-    const { data: signUpData, error: signUpError } = await isolatedClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
+    const result = await response.json();
 
-    if (signUpError) throw signUpError;
-    if (!signUpData.user) throw new Error('No user created by Supabase Auth');
-
-    const newUserId = signUpData.user.id;
-
-    // Set their role to the requested role (e.g. cashier or admin)
-    const { error: roleError } = await supabase
-      .from('profiles')
-      .upsert([
-        {
-          id: newUserId,
-          email,
-          full_name: fullName,
-          role,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
-
-    if (roleError) {
-      console.warn('Could not set custom role immediately, profile will have default role:', roleError);
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create staff account');
     }
 
     return { success: true, error: null };
